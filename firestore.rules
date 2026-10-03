@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Temporary development rule for Vehicle Management.
+    // This is intentionally safer than public access and allows access only to
+    // authenticated Firebase users while the project's auth and role system is
+    // still being implemented by Member 01.
+    //
+    // Final secure rule should require an authenticated Municipal Officer role,
+    // for example by checking a custom claim or a user profile document such as
+    // /users/{uid} with a role field equal to 'officer'.
+    //
+    // DO NOT use: allow read, write: if true;
+    match /vehicles/{vehicleId} {
+      allow create, read, update, delete: if request.auth != null;
+    }
+  }
+}

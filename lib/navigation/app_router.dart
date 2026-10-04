@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../screens/driver_management_screen.dart';
 import '../screens/driver_dashboard_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/municipal_dashboard_screen.dart';
+import '../screens/reports_analytics_screen.dart';
 import '../screens/resident_dashboard_screen.dart';
+import '../screens/schedule_management_screen.dart';
 import '../screens/splash_screen.dart';
+import '../screens/staff_management_screen.dart';
 import '../screens/vehicle_management_screen.dart';
 import 'app_routes.dart';
 
@@ -91,11 +95,23 @@ class AppRouter {
           settings: settings,
         );
       case AppRoutes.driverManagement:
+        return MaterialPageRoute(
+          builder: (context) => const DriverManagementScreen(),
+          settings: settings,
+        );
       case AppRoutes.staffManagement:
-      case AppRoutes.reportsAnalytics:
+        return MaterialPageRoute(
+          builder: (context) => const StaffManagementScreen(),
+          settings: settings,
+        );
       case AppRoutes.scheduleManagement:
         return MaterialPageRoute(
-          builder: (context) => const MunicipalDashboardScreen(), // Placeholder
+          builder: (context) => const ScheduleManagementScreen(),
+          settings: settings,
+        );
+      case AppRoutes.reportsAnalytics:
+        return MaterialPageRoute(
+          builder: (context) => const ReportsAnalyticsScreen(),
           settings: settings,
         );
 

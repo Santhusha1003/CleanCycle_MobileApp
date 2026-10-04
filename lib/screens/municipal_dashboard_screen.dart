@@ -199,7 +199,7 @@ class MunicipalDashboardScreen extends StatelessWidget {
                               color: AppColors.primary,
                             ),
                           ],
-                        )
+                        ),
                       ],
                     ),
                   );

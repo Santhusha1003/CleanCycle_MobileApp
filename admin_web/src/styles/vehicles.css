@@ -1,0 +1,127 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   CleanCycle Admin Web – Vehicle Management page styles
+   Imports routes.css for shared primitives (buttons, toolbar, table, modal).
+   Only vehicle-specific overrides live here.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Stat cards row (4 across, same visual as Dashboard) ── */
+.vm-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1100px) {
+  .vm-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .vm-stats { grid-template-columns: 1fr; }
+}
+
+.vm-stat-card {
+  background: var(--cc-white);
+  border: 1px solid var(--cc-border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: box-shadow 0.15s;
+}
+
+.vm-stat-card:hover {
+  box-shadow: var(--cc-shadow-sm);
+}
+
+.vm-stat-card__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vm-stat-card__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.vm-stat-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.vm-stat-card__value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--cc-text-primary);
+  line-height: 1.1;
+}
+
+.vm-stat-card__label {
+  font-size: 12px;
+  color: var(--cc-text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Vehicle registration ID pill ── */
+.vehicle-reg {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a5fbf;
+  background: #deeeff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* ── Vehicle status badges (reuse .badge base from dashboard.css) ── */
+.badge--available {
+  background: #dcf5e9;
+  color: #1a7a43;
+}
+
+.badge--in-service {
+  background: #deeeff;
+  color: #1a5fbf;
+}
+
+.badge--maintenance {
+  background: #fff8e0;
+  color: #a07000;
+}
+
+.badge--out-of-service {
+  background: #fee8e8;
+  color: #c0392b;
+}
+
+/* ── Service date chip ── */
+.service-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--cc-text-secondary);
+  white-space: nowrap;
+}
+
+.service-chip--due {
+  color: #a07000;
+  font-weight: 600;
+}
+
+.service-chip--overdue {
+  color: #c0392b;
+  font-weight: 600;
+}

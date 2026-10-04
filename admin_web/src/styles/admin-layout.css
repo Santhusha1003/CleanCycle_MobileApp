@@ -1,0 +1,330 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   CleanCycle Admin Web – Layout styles
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── CSS custom properties ── */
+:root {
+  --cc-sidebar-bg: #1a4731;
+  --cc-sidebar-width: 240px;
+  --cc-sidebar-collapsed-width: 0px;
+  --cc-primary: #2e8b57;
+  --cc-primary-dark: #1e5e3f;
+  --cc-primary-light: #daf0e2;
+  --cc-surface: #f7faf7;
+  --cc-white: #ffffff;
+  --cc-border: #d9e5dd;
+  --cc-text-primary: #163b2f;
+  --cc-text-secondary: #5d6f65;
+  --cc-text-muted: #8fa898;
+  --cc-nav-active-bg: #2e8b57;
+  --cc-nav-hover-bg: rgba(255, 255, 255, 0.08);
+  --cc-nav-active-text: #ffffff;
+  --cc-nav-text: rgba(255, 255, 255, 0.75);
+  --cc-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --cc-radius: 10px;
+}
+
+/* ── Global reset for admin shell ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  background: var(--cc-surface);
+  color: var(--cc-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  /* Override Vite scaffold constraints */
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  text-align: left;
+  border-inline: none;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: row;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Admin layout shell
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.admin-layout {
+  display: flex;
+  width: 100%;
+  min-height: 100svh;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sidebar
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.sidebar {
+  width: var(--cc-sidebar-width);
+  min-height: 100svh;
+  background: var(--cc-sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Branding ── */
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 20px 20px;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 8px;
+}
+
+.sidebar__brand-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--cc-primary);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.sidebar__brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sidebar__brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cc-white);
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+}
+
+.sidebar__brand-sub {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ── Nav section label ── */
+.sidebar__section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 12px 20px 6px;
+}
+
+/* ── Nav list ── */
+.sidebar__nav {
+  list-style: none;
+  margin: 0;
+  padding: 0 10px;
+  flex: 1;
+}
+
+.sidebar__nav-item {
+  margin-bottom: 2px;
+}
+
+.sidebar__nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--cc-nav-text);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar__nav-link:hover {
+  background: var(--cc-nav-hover-bg);
+  color: var(--cc-white);
+}
+
+.sidebar__nav-link.active {
+  background: var(--cc-nav-active-bg);
+  color: var(--cc-nav-active-text);
+  font-weight: 600;
+}
+
+.sidebar__nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.sidebar__nav-link.active .sidebar__nav-icon {
+  opacity: 1;
+}
+
+/* ── Logout (bottom of sidebar) ── */
+.sidebar__footer {
+  padding: 12px 10px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: auto;
+}
+
+.sidebar__logout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebar__logout:hover {
+  background: rgba(207, 78, 78, 0.18);
+  color: #f8a0a0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Main content area
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--cc-surface);
+}
+
+/* ── Top bar ── */
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  height: 60px;
+  background: var(--cc-white);
+  border-bottom: 1px solid var(--cc-border);
+  flex-shrink: 0;
+}
+
+.admin-topbar__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cc-text-primary);
+}
+
+.admin-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-topbar__avatar {
+  width: 34px;
+  height: 34px;
+  background: var(--cc-primary);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cc-white);
+  letter-spacing: 0.5px;
+}
+
+.admin-topbar__badge {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cc-text-secondary);
+}
+
+/* ── Page content ── */
+.admin-content {
+  flex: 1;
+  padding: 28px;
+  overflow-y: auto;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Placeholder page styles (temporary – remove when real pages are built)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.page-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.page-placeholder__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--cc-text-primary);
+  margin: 0;
+}
+
+.page-placeholder__subtitle {
+  font-size: 14px;
+  color: var(--cc-text-secondary);
+  margin: 0;
+}
+
+.page-placeholder__chip {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--cc-primary-light);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cc-primary-dark);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Responsive – collapse sidebar on narrow screens
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+}

@@ -1,0 +1,36 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   CleanCycle Admin Web – Staff Management page styles
+   Builds on routes.css, vehicles.css, and drivers.css shared primitives.
+   Only staff-specific rules live here.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Staff status badge — inactive (not in drivers.css) ── */
+.badge--inactive {
+  background: #f0f4f1;
+  color: #5d6f65;
+}
+
+/* ── Position / role tag ── */
+.position-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--cc-primary-light);
+  color: var(--cc-primary-dark);
+  white-space: nowrap;
+}
+
+/* ── Staff ID pill ── */
+.staff-id-pill {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5d6f65;
+  background: #f0f4f1;
+  padding: 2px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+}

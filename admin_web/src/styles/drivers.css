@@ -1,0 +1,119 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   CleanCycle Admin Web – Driver Management page styles
+   Builds on routes.css shared primitives and vehicles.css stat-card pattern.
+   Only driver-specific rules live here.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Driver avatar initials circle ── */
+.driver-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--cc-primary-light);
+  border: 1px solid var(--cc-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cc-primary-dark);
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Driver name + sub-detail cell ── */
+.driver-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.driver-name-cell__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.driver-name-cell__name {
+  font-weight: 600;
+  color: var(--cc-text-primary);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.driver-name-cell__id {
+  font-size: 11px;
+  color: var(--cc-text-muted);
+}
+
+/* ── Driver status badges ── */
+.badge--active {
+  background: #dcf5e9;
+  color: #1a7a43;
+}
+
+.badge--on-duty {
+  background: #deeeff;
+  color: #1a5fbf;
+}
+
+.badge--off-duty {
+  background: #f0f4f1;
+  color: #5d6f65;
+}
+
+.badge--on-leave {
+  background: #fff8e0;
+  color: #a07000;
+}
+
+.badge--suspended {
+  background: #fee8e8;
+  color: #c0392b;
+}
+
+/* ── License number pill ── */
+.license-pill {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5d4a00;
+  background: #fff3cd;
+  padding: 2px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+/* ── License expiry chip ── */
+.expiry-chip {
+  font-size: 11px;
+  color: var(--cc-text-secondary);
+  white-space: nowrap;
+}
+
+.expiry-chip--expiring {
+  color: #a07000;
+  font-weight: 600;
+}
+
+.expiry-chip--expired {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+/* ── Contact mini-stack (phone + email) ── */
+.contact-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.contact-stack__line {
+  font-size: 12px;
+  color: var(--cc-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}

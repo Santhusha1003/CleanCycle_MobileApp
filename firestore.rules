@@ -1,18 +1,36 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Temporary development rule for Vehicle Management.
-    // This is intentionally safer than public access and allows access only to
-    // authenticated Firebase users while the project's auth and role system is
-    // still being implemented by Member 01.
-    //
-    // Final secure rule should require an authenticated Municipal Officer role,
-    // for example by checking a custom claim or a user profile document such as
-    // /users/{uid} with a role field equal to 'officer'.
-    //
+
+    // ─── TEMPORARY DEVELOPMENT RULES ────────────────────────────────────────
+    // Access is restricted to authenticated Firebase users only.
     // DO NOT use: allow read, write: if true;
+    //
+    // These rules are intentionally temporary while Member 01 completes the
+    // Firebase Authentication and role management system.
+    //
+    // TODO (post-auth integration): Replace these rules with role-based rules
+    // that verify a Municipal Officer role, e.g. by checking a custom claim:
+    //   request.auth.token.role == 'municipal_officer'
+    // or a Firestore user profile document such as:
+    //   get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'officer'
+    // ─────────────────────────────────────────────────────────────────────────
+
     match /vehicles/{vehicleId} {
       allow create, read, update, delete: if request.auth != null;
     }
+
+    match /drivers/{driverId} {
+      allow create, read, update, delete: if request.auth != null;
+    }
+
+    match /staff/{staffId} {
+      allow create, read, update, delete: if request.auth != null;
+    }
+
+    match /schedules/{scheduleId} {
+      allow create, read, update, delete: if request.auth != null;
+    }
+
   }
 }

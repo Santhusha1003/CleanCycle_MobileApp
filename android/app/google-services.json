@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "734679342852",
+    "project_id": "cleancyclemobileapp",
+    "storage_bucket": "cleancyclemobileapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:734679342852:android:91c32a6cdfa47b98713a51",
+        "android_client_info": {
+          "package_name": "com.example.cleancycle_mobileapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrhgxLMoy_Obu-7PQbjqQ-tJjh4TbXBps"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

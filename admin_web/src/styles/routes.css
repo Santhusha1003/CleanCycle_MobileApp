@@ -1,0 +1,512 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   CleanCycle Admin Web – Route Management page styles
+   Reuses CSS custom properties from admin-layout.css and badge/table classes
+   from dashboard.css. Only route-specific rules live here.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Page header row (title + action button) ── */
+.rm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.rm-header__text {}
+
+.rm-header__title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--cc-text-primary);
+  margin: 0 0 4px;
+  line-height: 1.2;
+}
+
+.rm-header__subtitle {
+  font-size: 14px;
+  color: var(--cc-text-secondary);
+  margin: 0;
+  font-weight: 400;
+}
+
+/* ── Primary action button ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--cc-primary);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, box-shadow 0.15s;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.btn-primary:hover {
+  background: var(--cc-primary-dark);
+  box-shadow: var(--cc-shadow-sm);
+}
+
+.btn-primary svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* ── Secondary/outline button ── */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: var(--cc-white);
+  color: var(--cc-text-primary);
+  border: 1px solid var(--cc-border);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn-secondary:hover {
+  background: var(--cc-surface);
+  border-color: var(--cc-primary);
+  color: var(--cc-primary-dark);
+}
+
+.btn-secondary svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* ── Ghost icon button (edit / delete) ── */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s;
+  color: var(--cc-text-secondary);
+}
+
+.btn-icon:hover {
+  background: var(--cc-surface);
+  color: var(--cc-primary-dark);
+}
+
+.btn-icon--danger:hover {
+  background: #fee8e8;
+  color: #c0392b;
+}
+
+.btn-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Summary strip
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.rm-summary {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.rm-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  background: var(--cc-white);
+  border: 1px solid var(--cc-border);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cc-text-secondary);
+  flex-shrink: 0;
+}
+
+.rm-summary-chip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rm-summary-chip__value {
+  font-weight: 700;
+  color: var(--cc-text-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Toolbar (search + filter + export)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.rm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.rm-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+  max-width: 380px;
+}
+
+.rm-search-wrap svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 15px;
+  height: 15px;
+  color: var(--cc-text-muted);
+  pointer-events: none;
+}
+
+.rm-search {
+  width: 100%;
+  padding: 9px 12px 9px 34px;
+  border: 1px solid var(--cc-border);
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--cc-text-primary);
+  background: var(--cc-white);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.rm-search::placeholder {
+  color: var(--cc-text-muted);
+}
+
+.rm-search:focus {
+  border-color: var(--cc-primary);
+}
+
+.rm-filter {
+  padding: 9px 12px;
+  border: 1px solid var(--cc-border);
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--cc-text-primary);
+  background: var(--cc-white);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  min-width: 150px;
+}
+
+.rm-filter:focus {
+  border-color: var(--cc-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Routes table card
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.rm-table-card {
+  background: var(--cc-white);
+  border: 1px solid var(--cc-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.rm-table-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--cc-border);
+}
+
+.rm-table-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cc-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.rm-table-card__title::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 16px;
+  background: var(--cc-primary);
+  border-radius: 2px;
+}
+
+.rm-table-card__count {
+  font-size: 12px;
+  color: var(--cc-text-muted);
+  font-weight: 400;
+}
+
+.rm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.rm-table thead th {
+  padding: 10px 20px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cc-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--cc-surface);
+  border-bottom: 1px solid var(--cc-border);
+  white-space: nowrap;
+}
+
+.rm-table tbody tr {
+  border-bottom: 1px solid #f0f4f1;
+  transition: background 0.1s;
+}
+
+.rm-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.rm-table tbody tr:hover {
+  background: #f7fbf8;
+}
+
+.rm-table tbody td {
+  padding: 13px 20px;
+  vertical-align: middle;
+  color: var(--cc-text-primary);
+}
+
+.rm-table tbody td.td-muted {
+  color: var(--cc-text-secondary);
+}
+
+.rm-table__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Route ID pill */
+.route-id {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cc-primary-dark);
+  background: var(--cc-primary-light);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* Waste-type tag */
+.waste-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #f0f4f1;
+  color: var(--cc-text-secondary);
+  white-space: nowrap;
+}
+
+/* Empty state */
+.rm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 56px 24px;
+  color: var(--cc-text-muted);
+}
+
+.rm-empty svg {
+  width: 40px;
+  height: 40px;
+  opacity: 0.4;
+}
+
+.rm-empty__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cc-text-secondary);
+  margin: 0;
+}
+
+.rm-empty__sub {
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Modal overlay + dialog
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.38);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.modal {
+  background: var(--cc-white);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 18px;
+  border-bottom: 1px solid var(--cc-border);
+}
+
+.modal__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--cc-text-primary);
+  margin: 0;
+}
+
+.modal__close {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 7px;
+  background: var(--cc-surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cc-text-secondary);
+  transition: background 0.12s;
+}
+
+.modal__close:hover {
+  background: #ffe0e0;
+  color: #c0392b;
+}
+
+.modal__close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.modal__body {
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--cc-border);
+}
+
+/* ── Form fields ── */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 480px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-group--full {
+  grid-column: 1 / -1;
+}
+
+.form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cc-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  padding: 9px 12px;
+  border: 1px solid var(--cc-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--cc-text-primary);
+  background: var(--cc-white);
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: var(--cc-primary);
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: var(--cc-text-muted);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 72px;
+}

@@ -343,6 +343,57 @@ export function subscribeSchedules(onData, onError) {
   return subscribeCollection('schedules', (docs) => onData(docs.map(scheduleFromDoc)), onError)
 }
 
+/** Create a schedule document. Doc ID = scheduleId (matches mobile). */
+export async function createSchedule(formData) {
+  await ensureDevAuth()
+  const id = formData.scheduleId?.trim()
+  if (!id) throw new Error('scheduleId is required')
+
+  const now = serverTimestamp()
+  await setDoc(doc(db, 'schedules', id), {
+    scheduleId:        id,
+    zone:              formData.zone?.trim()             ?? '',
+    collectionDate:    toTimestamp(formData.collectionDate),
+    startTime:         formData.startTime?.trim()        ?? '',
+    endTime:           formData.endTime?.trim()          ?? '',
+    wasteType:         formData.wasteType?.trim().toLowerCase() ?? 'general',
+    assignedVehicleId: formData.assignedVehicleId?.trim() || null,
+    assignedDriverId:  formData.assignedDriverId?.trim()  || null,
+    status:            formData.status?.trim().toLowerCase() ?? 'scheduled',
+    notes:             formData.notes?.trim() || null,
+    createdAt:         now,
+    updatedAt:         now,
+  })
+}
+
+/** Update an existing schedule document. */
+export async function updateSchedule(scheduleId, formData) {
+  await ensureDevAuth()
+  const id = scheduleId?.trim()
+  if (!id) throw new Error('scheduleId is required')
+
+  await setDoc(doc(db, 'schedules', id), {
+    scheduleId:        id,
+    zone:              formData.zone?.trim()             ?? '',
+    collectionDate:    toTimestamp(formData.collectionDate),
+    startTime:         formData.startTime?.trim()        ?? '',
+    endTime:           formData.endTime?.trim()          ?? '',
+    wasteType:         formData.wasteType?.trim().toLowerCase() ?? 'general',
+    assignedVehicleId: formData.assignedVehicleId?.trim() || null,
+    assignedDriverId:  formData.assignedDriverId?.trim()  || null,
+    status:            formData.status?.trim().toLowerCase() ?? 'scheduled',
+    notes:             formData.notes?.trim() || null,
+    createdAt:         formData.createdAt ?? serverTimestamp(),
+    updatedAt:         serverTimestamp(),
+  }, { merge: false })
+}
+
+/** Delete a schedule document. */
+export async function deleteSchedule(scheduleId) {
+  await ensureDevAuth()
+  await deleteDoc(doc(db, 'schedules', scheduleId))
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ANALYTICS helpers (mirrors MunicipalAnalyticsService logic from Flutter)
 // ─────────────────────────────────────────────────────────────────────────────

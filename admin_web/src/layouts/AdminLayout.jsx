@@ -4,12 +4,19 @@ import '../styles/admin-layout.css'
 
 // Map route paths to human-readable page titles for the top bar
 const PAGE_TITLES = {
-  '/dashboard': 'Dashboard',
-  '/routes':    'Route Management',
-  '/vehicles':  'Vehicle Management',
-  '/drivers':   'Driver Management',
-  '/staff':     'Staff Management',
-  '/reports':   'Reports & Analytics',
+  '/dashboard':        'Dashboard',
+  '/users':            'User Management',
+  '/vehicles':         'Vehicle Management',
+  '/staff':            'Staff Management',
+  '/routes':           'Route Management',
+  '/drivers':          'Driver Management',
+  '/schedule':         'Collection Schedule',
+  '/live-tracking':    'Live Collection Tracking',
+  '/special-requests': 'Request a Waste Collection (Special)',
+  '/track-requests':   'Track Requests',
+  '/notifications':    'Notification Management',
+  '/complaints':       'Complaints & Feedback',
+  '/reports':          'Reports',
 }
 
 export default function AdminLayout() {

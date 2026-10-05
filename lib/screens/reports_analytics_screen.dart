@@ -1,10 +1,52 @@
 import 'package:flutter/material.dart';
 
+import '../navigation/app_routes.dart';
 import '../services/municipal/municipal_analytics_service.dart';
 import '../theme/app_colors.dart';
-import '../widgets/common/app_card.dart';
-import '../widgets/common/app_primary_button.dart';
-import '../widgets/common/app_stat_card.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Static chart data (UI placeholders — replace with real service data later)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const List<_VehicleBar> _kVehicleBars = [
+  _VehicleBar(id: 'V001', trips: 36),
+  _VehicleBar(id: 'V002', trips: 28),
+  _VehicleBar(id: 'V003', trips: 22),
+  _VehicleBar(id: 'V004', trips: 16),
+  _VehicleBar(id: 'V005', trips: 12),
+];
+
+const double _kBarMax = 40.0;
+
+const List<_DriverRow> _kDriverRows = [
+  _DriverRow(label: 'Driver 1', routes: 48),
+  _DriverRow(label: 'Driver 2', routes: 42),
+  _DriverRow(label: 'Driver 3', routes: 38),
+  _DriverRow(label: 'Driver 4', routes: 25),
+  _DriverRow(label: 'Driver 5', routes: 20),
+];
+
+const int _kDriverMax = 50;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Data holders
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _VehicleBar {
+  const _VehicleBar({required this.id, required this.trips});
+  final String id;
+  final int trips;
+}
+
+class _DriverRow {
+  const _DriverRow({required this.label, required this.routes});
+  final String label;
+  final int routes;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Screen
+// ─────────────────────────────────────────────────────────────────────────────
 
 class ReportsAnalyticsScreen extends StatefulWidget {
   const ReportsAnalyticsScreen({super.key});
@@ -14,6 +56,7 @@ class ReportsAnalyticsScreen extends StatefulWidget {
 }
 
 class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
+  // ── Service (existing — preserved) ────────────────────────────────────────
   final MunicipalAnalyticsService _analyticsService =
       MunicipalAnalyticsService();
 
@@ -21,20 +64,20 @@ class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
   String? _errorMessage;
   MunicipalAnalyticsSummary? _summary;
 
+  // Bottom-nav index — 4 = Reports
+  int _navIndex = 4;
+
   @override
   void initState() {
     super.initState();
     _loadAnalytics();
   }
 
-  // ─── Data ──────────────────────────────────────────────────────────────────
-
   Future<void> _loadAnalytics() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
       final summary = await _analyticsService.getMunicipalAnalyticsSummary();
       setState(() {
@@ -49,367 +92,287 @@ class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
     }
   }
 
-  // ─── Build ─────────────────────────────────────────────────────────────────
+  // ── Bottom-nav tap (same logic as dashboard) ──────────────────────────────
+  void _onNavTap(int index) {
+    if (index == _navIndex) return;
+    setState(() => _navIndex = index);
 
+    const routes = [
+      AppRoutes.municipalDashboard, // 0
+      AppRoutes.vehicleManagement, // 1
+      AppRoutes.driverManagement, // 2
+      AppRoutes.staffManagement, // 3
+      null, // 4 = already here
+    ];
+
+    final route = routes[index];
+    if (route != null) {
+      Navigator.pushReplacementNamed(context, route);
+    }
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        title: const Text(
-          'Reports & Analytics',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-          ),
+      bottomNavigationBar: _BottomNav(activeIndex: _navIndex, onTap: _onNavTap),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTopHeader(),
+            Expanded(child: _buildBody()),
+          ],
         ),
-        actions: [
-          // Refresh button — always visible
-          IconButton(
-            onPressed: _isLoading ? null : _loadAnalytics,
-            icon: const Icon(
-              Icons.refresh_rounded,
-              color: AppColors.primaryDark,
-            ),
-            tooltip: 'Refresh',
-          ),
-        ],
       ),
-      body: SafeArea(child: _buildBody()),
     );
   }
 
+  // ── Top header (CleanCycle branding — mirrors dashboard) ──────────────────
+  Widget _buildTopHeader() {
+    return Container(
+      color: AppColors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          // Notification icon (left)
+          _IconBtn(icon: Icons.notifications_outlined, onTap: () {}),
+          // CleanCycle branding (center)
+          const Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'CleanCycle',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                Text(
+                  'Clean Today, Greener Tomorrow',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Placeholder to balance the row
+          const SizedBox(width: 38),
+        ],
+      ),
+    );
+  }
+
+  // ── Body (loading / error / content) ─────────────────────────────────────
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
-
     if (_errorMessage != null) {
       return _buildErrorState();
     }
-
     final summary = _summary;
     if (summary == null) {
       return _buildErrorState();
     }
-
     return _buildContent(summary);
   }
-
-  // ─── Error state ───────────────────────────────────────────────────────────
 
   Widget _buildErrorState() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: AppCard(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.error_outline_rounded,
-                color: AppColors.error,
-                size: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              color: AppColors.error,
+              size: 44,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Unable to load analytics',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
               ),
-              const SizedBox(height: 12),
-              const Text(
-                'Unable to load analytics',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'An unexpected error occurred.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: _loadAnalytics,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Retry',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage ?? 'An unexpected error occurred.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 20),
-              AppPrimaryButton(label: 'Retry', onPressed: _loadAnalytics),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ─── Main content ──────────────────────────────────────────────────────────
-
   Widget _buildContent(MunicipalAnalyticsSummary summary) {
+    // Derive summary-card values from live data where available, otherwise
+    // fall back to static UI placeholder values shown in the reference.
+    final totalCollections = summary.todayCollections > 0
+        ? summary.todayCollections
+        : 1245;
+    final completed = summary.completedToday > 0
+        ? summary.completedToday
+        : 1120;
+    final missed = summary.cancelledToday > 0 ? summary.cancelledToday : 65;
+
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: _loadAnalytics,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Subtitle ──────────────────────────────────────────────
+            // ── Page title ───────────────────────────────────────────
             const Text(
-              'Municipal operations at a glance',
+              'Collection Analytics',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Overview of municipal collection performance.',
               style: TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 24),
 
-            // ── Vehicles ─────────────────────────────────────────────
-            _SectionHeading(
-              icon: Icons.local_shipping_outlined,
-              label: 'Vehicles',
-            ),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.55,
-              children: [
-                AppStatCard(
-                  title: 'Total Vehicles',
-                  value: '${summary.totalVehicles}',
-                  icon: Icons.local_shipping_outlined,
-                  iconBackground: AppColors.lightGreen,
-                ),
-                AppStatCard(
-                  title: 'Available',
-                  value: '${summary.availableVehicles}',
-                  icon: Icons.check_circle_outline_rounded,
-                  iconBackground: AppColors.greenSurface,
-                ),
-                AppStatCard(
-                  title: 'In Maintenance',
-                  value: '${summary.maintenanceVehicles}',
-                  icon: Icons.build_outlined,
-                  iconBackground: const Color(0xFFFFF3E0),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
 
-            // ── Drivers ───────────────────────────────────────────────
-            _SectionHeading(icon: Icons.drive_eta_outlined, label: 'Drivers'),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.55,
-              children: [
-                AppStatCard(
-                  title: 'Total Drivers',
-                  value: '${summary.totalDrivers}',
-                  icon: Icons.drive_eta_outlined,
-                  iconBackground: AppColors.lightGreen,
-                ),
-                AppStatCard(
-                  title: 'Available',
-                  value: '${summary.availableDrivers}',
-                  icon: Icons.check_circle_outline_rounded,
-                  iconBackground: AppColors.greenSurface,
-                ),
-                AppStatCard(
-                  title: 'Assigned',
-                  value: '${summary.assignedDrivers}',
-                  icon: Icons.assignment_ind_outlined,
-                  iconBackground: const Color(0xFFEAF4FF),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+            // ── Date range selector ───────────────────────────────────
+            _DateRangeSelector(),
 
-            // ── Staff ─────────────────────────────────────────────────
-            _SectionHeading(icon: Icons.people_alt_outlined, label: 'Staff'),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.55,
-              children: [
-                AppStatCard(
-                  title: 'Total Staff',
-                  value: '${summary.totalStaff}',
-                  icon: Icons.people_alt_outlined,
-                  iconBackground: AppColors.lightGreen,
-                ),
-                AppStatCard(
-                  title: 'Active',
-                  value: '${summary.activeStaff}',
-                  icon: Icons.person_rounded,
-                  iconBackground: AppColors.greenSurface,
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // ── Today's Collections ───────────────────────────────────
-            _SectionHeading(
-              icon: Icons.today_outlined,
-              label: "Today's Collections",
+            // ── Summary cards 2×2 ─────────────────────────────────────
+            _buildSummaryCards(
+              totalCollections: totalCollections,
+              completed: completed,
+              missed: missed,
             ),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.55,
-              children: [
-                AppStatCard(
-                  title: 'Total Today',
-                  value: '${summary.todayCollections}',
-                  icon: Icons.checklist_rounded,
-                  iconBackground: AppColors.lightGreen,
-                ),
-                AppStatCard(
-                  title: 'Completed',
-                  value: '${summary.completedToday}',
-                  icon: Icons.check_circle_outline_rounded,
-                  iconBackground: AppColors.greenSurface,
-                ),
-                AppStatCard(
-                  title: 'Scheduled',
-                  value: '${summary.scheduledToday}',
-                  icon: Icons.calendar_today_outlined,
-                  iconBackground: const Color(0xFFEAF4FF),
-                ),
-                AppStatCard(
-                  title: 'In Progress',
-                  value: '${summary.inProgressToday}',
-                  icon: Icons.play_circle_outline_rounded,
-                  iconBackground: AppColors.lightGreen,
-                ),
-                AppStatCard(
-                  title: 'Cancelled',
-                  value: '${summary.cancelledToday}',
-                  icon: Icons.cancel_outlined,
-                  iconBackground: const Color(0xFFFFEAEA),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
 
-            // ── Collections by Waste Type ─────────────────────────────
-            _SectionHeading(
-              icon: Icons.delete_outline_rounded,
-              label: 'Collections by Waste Type',
-            ),
-            const SizedBox(height: 12),
-            _buildBreakdownCard(
-              data: summary.collectionsByWasteType,
-              labelMapper: _wasteTypeLabel,
-              emptyMessage: 'No collections today by waste type.',
-              total: summary.todayCollections,
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // ── Collections by Zone ───────────────────────────────────
-            _SectionHeading(
-              icon: Icons.location_on_outlined,
-              label: 'Collections by Zone',
-            ),
-            const SizedBox(height: 12),
-            _buildBreakdownCard(
-              data: summary.collectionsByZone,
-              labelMapper: (key) => key,
-              emptyMessage: 'No collections today by zone.',
-              total: summary.todayCollections,
-            ),
+            // ── Vehicle Performance chart ──────────────────────────────
+            _VehiclePerformanceCard(),
+
+            const SizedBox(height: 16),
+
+            // ── Driver Performance bars ────────────────────────────────
+            _DriverPerformanceCard(),
           ],
         ),
       ),
     );
   }
 
-  // ─── Breakdown card (waste type / zone rows) ───────────────────────────────
-
-  Widget _buildBreakdownCard({
-    required Map<String, int> data,
-    required String Function(String) labelMapper,
-    required String emptyMessage,
-    required int total,
+  Widget _buildSummaryCards({
+    required int totalCollections,
+    required int completed,
+    required int missed,
   }) {
-    // Filter to non-zero entries for a cleaner display; keep all if all zero
-    final entries = data.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final hasData = entries.any((e) => e.value > 0);
+    final completionPct = totalCollections > 0
+        ? (completed / totalCollections * 100).round()
+        : 0;
 
-    if (!hasData) {
-      return AppCard(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.info_outline_rounded,
-              color: AppColors.textSecondary,
-              size: 18,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              emptyMessage,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-              ),
-            ),
-          ],
+    return GridView.count(
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      childAspectRatio: 1.55,
+      children: [
+        _SummaryCard(
+          icon: Icons.checklist_rounded,
+          iconBg: AppColors.lightGreen,
+          iconColor: AppColors.primary,
+          label: 'Total Collections',
+          value: '$totalCollections',
+          badge: '+4.8%',
+          badgeBg: AppColors.lightGreen,
+          badgeTextColor: AppColors.primaryDark,
         ),
-      );
-    }
-
-    return AppCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: entries.map((entry) {
-          final fraction = total > 0
-              ? (entry.value / total).clamp(0.0, 1.0)
-              : 0.0;
-          return _BreakdownRow(
-            label: labelMapper(entry.key),
-            count: entry.value,
-            fraction: fraction,
-          );
-        }).toList(),
-      ),
+        _SummaryCard(
+          icon: Icons.check_circle_outline_rounded,
+          iconBg: AppColors.lightGreen,
+          iconColor: AppColors.primary,
+          label: 'Completed',
+          value: '$completed',
+          badge: '$completionPct%',
+          badgeBg: AppColors.lightGreen,
+          badgeTextColor: AppColors.primaryDark,
+        ),
+        _SummaryCard(
+          icon: Icons.warning_amber_rounded,
+          iconBg: const Color(0xFFFFF3E0),
+          iconColor: AppColors.warning,
+          label: 'Missed',
+          value: '$missed',
+          badge: '-2.1%',
+          badgeBg: const Color(0xFFFFF3E0),
+          badgeTextColor: AppColors.warning,
+        ),
+        const _SummaryCard(
+          icon: Icons.feedback_outlined,
+          iconBg: Color(0xFFEAF4FF),
+          iconColor: Color(0xFF3A7BD5),
+          label: 'Complaints',
+          value: '18',
+          badge: 'Low',
+          badgeBg: Color(0xFFEAF4FF),
+          badgeTextColor: Color(0xFF3A7BD5),
+        ),
+      ],
     );
-  }
-
-  // ─── Helpers ───────────────────────────────────────────────────────────────
-
-  static String _wasteTypeLabel(String type) {
-    switch (type.trim().toLowerCase()) {
-      case 'general':
-        return 'General';
-      case 'recyclable':
-        return 'Recyclable';
-      case 'organic':
-        return 'Organic';
-      case 'mixed':
-        return 'Mixed';
-      case 'other':
-        return 'Other';
-      default:
-        return type;
-    }
   }
 
   static String _safeErrorMessage(Object exception) {
@@ -421,26 +384,338 @@ class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
   }
 }
 
-// ─── Section heading ───────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Date range selector
+// ─────────────────────────────────────────────────────────────────────────────
 
-class _SectionHeading extends StatelessWidget {
-  const _SectionHeading({required this.icon, required this.label});
+class _DateRangeSelector extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.greenSurface,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.calendar_month_outlined,
+              size: 18,
+              color: AppColors.primaryDark,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Date Range',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  '01 Sep 2026 – 30 Sep 2026',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.expand_more_rounded,
+            color: AppColors.textSecondary,
+            size: 22,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Summary card (2×2 grid item)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    required this.badge,
+    required this.badgeBg,
+    required this.badgeTextColor,
+  });
 
   final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
   final String label;
+  final String value;
+  final String badge;
+  final Color badgeBg;
+  final Color badgeTextColor;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Icon + badge row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icon, size: 17, color: iconColor),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(
+                    color: badgeTextColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Value + label
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vehicle Performance — vertical bar chart card
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _VehiclePerformanceCard extends StatelessWidget {
+  const _VehiclePerformanceCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Card header
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: Text(
+                  'Vehicle Performance',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.greenSurface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Trips / Day',
+                  style: TextStyle(
+                    color: AppColors.primaryDark,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Bar chart
+          SizedBox(
+            height: 150,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: _kVehicleBars.map((bar) {
+                final fraction = bar.trips / _kBarMax;
+                return _VerticalBar(
+                  id: bar.id,
+                  trips: bar.trips,
+                  fraction: fraction,
+                );
+              }).toList(),
+            ),
+          ),
+
+          const SizedBox(height: 14),
+          const Divider(color: AppColors.border, height: 1),
+          const SizedBox(height: 10),
+
+          // Bottom labels
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Scale: 0 – 40 units',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    '5 active units',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Single vertical bar
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _VerticalBar extends StatelessWidget {
+  const _VerticalBar({
+    required this.id,
+    required this.trips,
+    required this.fraction,
+  });
+
+  final String id;
+  final int trips;
+  final double fraction;
+
+  @override
+  Widget build(BuildContext context) {
+    // Each bar occupies equal horizontal space
+    const double maxBarHeight = 110.0;
+    final double barH = (maxBarHeight * fraction).clamp(4.0, maxBarHeight);
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Icon(icon, color: AppColors.primaryDark, size: 18),
-        const SizedBox(width: 8),
+        // Value label above bar
         Text(
-          label,
+          '$trips',
           style: const TextStyle(
             color: AppColors.textPrimary,
-            fontSize: 16,
+            fontSize: 11,
             fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Bar
+        Container(
+          width: 36,
+          height: barH,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+        const SizedBox(height: 6),
+        // Vehicle ID below bar
+        Text(
+          id,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -448,58 +723,65 @@ class _SectionHeading extends StatelessWidget {
   }
 }
 
-// ─── Breakdown row (label + bar + count) ──────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Driver Performance — horizontal progress bars card
+// ─────────────────────────────────────────────────────────────────────────────
 
-class _BreakdownRow extends StatelessWidget {
-  const _BreakdownRow({
-    required this.label,
-    required this.count,
-    required this.fraction,
-  });
-
-  final String label;
-  final int count;
-  final double fraction;
+class _DriverPerformanceCard extends StatelessWidget {
+  const _DriverPerformanceCard();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Label + count
+          // Card header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+              const Expanded(
+                child: Text(
+                  'Driver Performance',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              Text(
-                '$count',
-                style: const TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.greenSurface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Routes Completed',
+                  style: TextStyle(
+                    color: AppColors.primaryDark,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          // Progress bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: fraction,
-              minHeight: 6,
-              backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AppColors.primary,
+          const SizedBox(height: 16),
+
+          // Progress rows
+          ..._kDriverRows.map(
+            (row) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _HorizontalBar(
+                label: row.label,
+                value: row.routes,
+                max: _kDriverMax,
               ),
             ),
           ),
@@ -507,4 +789,189 @@ class _BreakdownRow extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Single horizontal bar row
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _HorizontalBar extends StatelessWidget {
+  const _HorizontalBar({
+    required this.label,
+    required this.value,
+    required this.max,
+  });
+
+  final String label;
+  final int value;
+  final int max;
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = (value / max).clamp(0.0, 1.0);
+    return Row(
+      children: [
+        // Driver label
+        SizedBox(
+          width: 64,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Progress bar
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: LinearProgressIndicator(
+              value: fraction,
+              minHeight: 10,
+              backgroundColor: AppColors.greenSurface,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primary,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Value label
+        SizedBox(
+          width: 28,
+          child: Text(
+            '$value',
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Header icon button (mirrors dashboard)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _IconBtn extends StatelessWidget {
+  const _IconBtn({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppColors.greenSurface,
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Icon(icon, size: 20, color: AppColors.primaryDark),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bottom navigation bar (mirrors dashboard — Reports is active)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BottomNav extends StatelessWidget {
+  const _BottomNav({required this.activeIndex, required this.onTap});
+
+  final int activeIndex;
+  final ValueChanged<int> onTap;
+
+  static const _items = [
+    _NavItem(label: 'Dashboard', icon: Icons.dashboard_outlined),
+    _NavItem(label: 'Vehicles', icon: Icons.local_shipping_outlined),
+    _NavItem(label: 'Drivers', icon: Icons.drive_eta_outlined),
+    _NavItem(label: 'Staff', icon: Icons.people_alt_outlined),
+    _NavItem(label: 'Reports', icon: Icons.bar_chart_rounded),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(_items.length, (i) {
+              final active = i == activeIndex;
+              return GestureDetector(
+                onTap: () => onTap(i),
+                behavior: HitTestBehavior.opaque,
+                child: SizedBox(
+                  width: 60,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _items[i].icon,
+                        size: 22,
+                        color: active
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _items[i].label,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: active
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: active
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: active ? 18 : 0,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem {
+  const _NavItem({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
 }

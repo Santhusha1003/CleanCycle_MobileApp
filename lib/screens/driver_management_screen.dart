@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/driver.dart';
@@ -21,6 +24,9 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
   final DriverService _driverService = DriverService();
   final TextEditingController _searchController = TextEditingController();
 
+  // Real-time Firestore subscription.
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _driverSubscription;
+
   bool _isLoading = true;
   String? _errorMessage;
   List<Driver> _drivers = const <Driver>[];
@@ -29,34 +35,58 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDrivers();
+    _subscribeDrivers();
   }
 
   @override
   void dispose() {
+    _driverSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadDrivers() async {
+  void _subscribeDrivers() {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    try {
-      final drivers = await _driverService.getDrivers();
-      setState(() {
-        _drivers = drivers;
-        _filteredDrivers = _applySearchFilter(_drivers, _searchController.text);
-        _isLoading = false;
-      });
-    } on Exception catch (exception) {
-      setState(() {
-        _errorMessage = _safeErrorMessage(exception);
-        _isLoading = false;
-      });
-    }
+    _driverSubscription = FirebaseFirestore.instance
+        .collection('drivers')
+        .snapshots()
+        .listen(
+          (snapshot) {
+            final drivers = snapshot.docs
+                .map((doc) => Driver.fromMap(doc.data()))
+                .toList();
+            if (mounted) {
+              setState(() {
+                _drivers = drivers;
+                _filteredDrivers = _applySearchFilter(
+                  _drivers,
+                  _searchController.text,
+                );
+                _isLoading = false;
+                _errorMessage = null;
+              });
+            }
+          },
+          onError: (Object error) {
+            if (mounted) {
+              setState(() {
+                _errorMessage = _safeErrorMessage(
+                  error is Exception ? error : Exception(error.toString()),
+                );
+                _isLoading = false;
+              });
+            }
+          },
+        );
+  }
+
+  Future<void> _loadDrivers() async {
+    await _driverSubscription?.cancel();
+    _subscribeDrivers();
   }
 
   List<Driver> _applySearchFilter(List<Driver> source, String query) {

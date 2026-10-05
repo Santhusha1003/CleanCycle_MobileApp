@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/staff.dart';
@@ -21,6 +24,9 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   final StaffService _staffService = StaffService();
   final TextEditingController _searchController = TextEditingController();
 
+  // Real-time Firestore subscription.
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _staffSubscription;
+
   bool _isLoading = true;
   String? _errorMessage;
   List<Staff> _staffMembers = const <Staff>[];
@@ -29,39 +35,60 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
   @override
   void initState() {
     super.initState();
-    _loadStaff();
+    _subscribeStaff();
   }
 
   @override
   void dispose() {
+    _staffSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   // ─── Data ──────────────────────────────────────────────────────────────────
 
-  Future<void> _loadStaff() async {
+  void _subscribeStaff() {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    try {
-      final members = await _staffService.getStaffMembers();
-      setState(() {
-        _staffMembers = members;
-        _filteredStaff = _applySearchFilter(
-          _staffMembers,
-          _searchController.text,
+    _staffSubscription = FirebaseFirestore.instance
+        .collection('staff')
+        .snapshots()
+        .listen(
+          (snapshot) {
+            final members = snapshot.docs
+                .map((doc) => Staff.fromMap(doc.data()))
+                .toList();
+            if (mounted) {
+              setState(() {
+                _staffMembers = members;
+                _filteredStaff = _applySearchFilter(
+                  _staffMembers,
+                  _searchController.text,
+                );
+                _isLoading = false;
+                _errorMessage = null;
+              });
+            }
+          },
+          onError: (Object error) {
+            if (mounted) {
+              setState(() {
+                _errorMessage = _safeErrorMessage(
+                  error is Exception ? error : Exception(error.toString()),
+                );
+                _isLoading = false;
+              });
+            }
+          },
         );
-        _isLoading = false;
-      });
-    } on Exception catch (exception) {
-      setState(() {
-        _errorMessage = _safeErrorMessage(exception);
-        _isLoading = false;
-      });
-    }
+  }
+
+  Future<void> _loadStaff() async {
+    await _staffSubscription?.cancel();
+    _subscribeStaff();
   }
 
   List<Staff> _applySearchFilter(List<Staff> source, String query) {

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/vehicle.dart';
@@ -22,6 +25,10 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
   final VehicleService _vehicleService = VehicleService();
   final TextEditingController _searchController = TextEditingController();
 
+  // Real-time Firestore subscription — replaces one-time _loadVehicles() read.
+  // Keeps all CRUD (create/update/delete) via the existing VehicleService.
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _vehicleSubscription;
+
   bool _isLoading = true;
   String? _errorMessage;
   List<Vehicle> _vehicles = const <Vehicle>[];
@@ -30,37 +37,60 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
   @override
   void initState() {
     super.initState();
-    _loadVehicles();
+    _subscribeVehicles();
   }
 
   @override
   void dispose() {
+    _vehicleSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadVehicles() async {
+  /// Subscribe to the `vehicles` collection in real time.
+  /// Any change from Admin Web or another mobile session is reflected instantly.
+  void _subscribeVehicles() {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    try {
-      final vehicles = await _vehicleService.getVehicles();
-      setState(() {
-        _vehicles = vehicles;
-        _filteredVehicles = _applySearchFilter(
-          _vehicles,
-          _searchController.text,
+    _vehicleSubscription = FirebaseFirestore.instance
+        .collection('vehicles')
+        .snapshots()
+        .listen(
+          (snapshot) {
+            final vehicles = snapshot.docs
+                .map((doc) => Vehicle.fromMap(doc.data()))
+                .toList();
+            if (mounted) {
+              setState(() {
+                _vehicles = vehicles;
+                _filteredVehicles = _applySearchFilter(
+                  _vehicles,
+                  _searchController.text,
+                );
+                _isLoading = false;
+                _errorMessage = null;
+              });
+            }
+          },
+          onError: (Object error) {
+            if (mounted) {
+              setState(() {
+                _errorMessage = error.toString();
+                _isLoading = false;
+              });
+            }
+          },
         );
-        _isLoading = false;
-      });
-    } on Exception catch (exception) {
-      setState(() {
-        _errorMessage = exception.toString();
-        _isLoading = false;
-      });
-    }
+  }
+
+  // Keep _loadVehicles() for the Retry button — it re-subscribes if the
+  // subscription errored out.
+  Future<void> _loadVehicles() async {
+    await _vehicleSubscription?.cancel();
+    _subscribeVehicles();
   }
 
   List<Vehicle> _applySearchFilter(List<Vehicle> source, String query) {

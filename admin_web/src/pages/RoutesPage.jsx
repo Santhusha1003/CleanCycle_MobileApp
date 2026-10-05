@@ -1,146 +1,47 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import '../styles/routes.css'
+import {
+  subscribeSchedules,
+  createSchedule,
+  updateSchedule,
+  deleteSchedule,
+  tsToDateStr,
+} from '../services/firestoreService.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STATIC PLACEHOLDER DATA
-// Replace with real Firebase/Firestore service calls when the data layer is
-// connected. All UI components receive data as props — no Firebase logic here.
+// Route/Schedule Management — wired to Firestore `schedules` collection.
+// Uses the SAME schema as the Flutter ScheduleService (field names preserved).
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ROUTES_DATA = [
-  {
-    id: 'RT-1001',
-    name:        'North Zone – Morning Run',
-    zone:        'North Zone',
-    driver:      'T. Mensah',
-    vehicle:     'GH-2341-A',
-    wasteType:   'General',
-    startTime:   '06:00',
-    endTime:     '10:30',
-    date:        '2026-10-04',
-    stops:       18,
-    status:      'completed',
-  },
-  {
-    id: 'RT-1002',
-    name:        'East Zone – Morning Run',
-    zone:        'East Zone',
-    driver:      'K. Asante',
-    vehicle:     'GH-1188-B',
-    wasteType:   'Recyclable',
-    startTime:   '07:00',
-    endTime:     '12:00',
-    date:        '2026-10-04',
-    stops:       22,
-    status:      'in-progress',
-  },
-  {
-    id: 'RT-1003',
-    name:        'Central Zone – Route C',
-    zone:        'Central Zone',
-    driver:      'A. Osei',
-    vehicle:     'GH-3302-C',
-    wasteType:   'Organic',
-    startTime:   '08:30',
-    endTime:     '13:00',
-    date:        '2026-10-04',
-    stops:       15,
-    status:      'in-progress',
-  },
-  {
-    id: 'RT-1004',
-    name:        'South Zone – Afternoon Run',
-    zone:        'South Zone',
-    driver:      'B. Adjei',
-    vehicle:     'GH-4451-D',
-    wasteType:   'General',
-    startTime:   '10:00',
-    endTime:     '14:30',
-    date:        '2026-10-04',
-    stops:       20,
-    status:      'scheduled',
-  },
-  {
-    id: 'RT-1005',
-    name:        'West Zone – Route E',
-    zone:        'West Zone',
-    driver:      'P. Boateng',
-    vehicle:     'GH-5521-E',
-    wasteType:   'Mixed',
-    startTime:   '09:00',
-    endTime:     '13:30',
-    date:        '2026-10-04',
-    stops:       17,
-    status:      'scheduled',
-  },
-  {
-    id: 'RT-1006',
-    name:        'North Zone – Late Run',
-    zone:        'North Zone',
-    driver:      'S. Darko',
-    vehicle:     'GH-6612-F',
-    wasteType:   'General',
-    startTime:   '11:00',
-    endTime:     '15:30',
-    date:        '2026-10-04',
-    stops:       14,
-    status:      'cancelled',
-  },
-  {
-    id: 'RT-1007',
-    name:        'East Zone – Afternoon Run',
-    zone:        'East Zone',
-    driver:      'E. Nkrumah',
-    vehicle:     'GH-7741-G',
-    wasteType:   'Recyclable',
-    startTime:   '12:00',
-    endTime:     '16:00',
-    date:        '2026-10-04',
-    stops:       19,
-    status:      'scheduled',
-  },
-  {
-    id: 'RT-1008',
-    name:        'South Zone – Special Pickup',
-    zone:        'South Zone',
-    driver:      'F. Ampofo',
-    vehicle:     'GH-8832-H',
-    wasteType:   'Organic',
-    startTime:   '13:30',
-    endTime:     '17:00',
-    date:        '2026-10-04',
-    stops:       11,
-    status:      'completed',
-  },
-]
-
-// Status config — single source of truth for badge colours + labels
+// Status config — matches Flutter ScheduleService.allowedStatuses
 const STATUS_META = {
-  completed:    { label: 'Completed',   mod: 'completed',   dot: '#2e8b57' },
-  'in-progress':{ label: 'In Progress', mod: 'in-progress', dot: '#3a7bd5' },
   scheduled:    { label: 'Scheduled',   mod: 'scheduled',   dot: '#e5a623' },
+  in_progress:  { label: 'In Progress', mod: 'in-progress', dot: '#3a7bd5' },
+  completed:    { label: 'Completed',   mod: 'completed',   dot: '#2e8b57' },
   cancelled:    { label: 'Cancelled',   mod: 'cancelled',   dot: '#cf4e4e' },
 }
 
 function getStatusMeta(status) {
-  return STATUS_META[status] ?? { label: status, mod: 'scheduled', dot: '#e5a623' }
+  return STATUS_META[(status || '').toLowerCase()] ?? { label: status, mod: 'scheduled', dot: '#e5a623' }
 }
 
-// Summary counts derived from data
 function buildSummary(routes) {
-  const counts = { total: routes.length, completed: 0, 'in-progress': 0, scheduled: 0, cancelled: 0 }
-  routes.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++ })
+  const counts = { total: routes.length, completed: 0, in_progress: 0, scheduled: 0, cancelled: 0 }
+  routes.forEach(r => {
+    const s = (r.status || '').toLowerCase()
+    if (counts[s] !== undefined) counts[s]++
+  })
   return [
-    { label: 'Total Routes',  value: counts.total,           dot: '#2e8b57' },
-    { label: 'Completed',     value: counts.completed,       dot: '#2e8b57' },
-    { label: 'In Progress',   value: counts['in-progress'],  dot: '#3a7bd5' },
-    { label: 'Scheduled',     value: counts.scheduled,       dot: '#e5a623' },
-    { label: 'Cancelled',     value: counts.cancelled,       dot: '#cf4e4e' },
+    { label: 'Total Routes',  value: counts.total,       dot: '#2e8b57' },
+    { label: 'Completed',     value: counts.completed,   dot: '#2e8b57' },
+    { label: 'In Progress',   value: counts.in_progress, dot: '#3a7bd5' },
+    { label: 'Scheduled',     value: counts.scheduled,   dot: '#e5a623' },
+    { label: 'Cancelled',     value: counts.cancelled,   dot: '#cf4e4e' },
   ]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Inline SVG icons  (no icon library — same pattern as Sidebar)
+// Inline SVG icons
 // ─────────────────────────────────────────────────────────────────────────────
 
 function IconPlus() {
@@ -151,7 +52,6 @@ function IconPlus() {
     </svg>
   )
 }
-
 function IconSearch() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -160,7 +60,6 @@ function IconSearch() {
     </svg>
   )
 }
-
 function IconEdit() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -170,7 +69,6 @@ function IconEdit() {
     </svg>
   )
 }
-
 function IconTrash() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -182,7 +80,6 @@ function IconTrash() {
     </svg>
   )
 }
-
 function IconClose() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
@@ -191,7 +88,6 @@ function IconClose() {
     </svg>
   )
 }
-
 function IconRoute() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -204,38 +100,53 @@ function IconRoute() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Blank form state — used for Add; pre-filled for Edit
+// Blank form — field names match Flutter CollectionSchedule model exactly
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BLANK_FORM = {
-  name: '', zone: '', driver: '', vehicle: '',
-  wasteType: 'General', startTime: '', endTime: '',
-  date: '', stops: '', status: 'scheduled',
+  scheduleId:        '',
+  zone:              '',
+  collectionDate:    '',   // ISO date string YYYY-MM-DD → converted to Timestamp on save
+  startTime:         '',   // HH:mm
+  endTime:           '',   // HH:mm
+  wasteType:         'general',
+  assignedVehicleId: '',
+  assignedDriverId:  '',
+  status:            'scheduled',
+  notes:             '',
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RouteFormModal
-// UI only — no Firebase calls. onSave receives the form data object.
+// RouteFormModal — Firestore-backed
 // ─────────────────────────────────────────────────────────────────────────────
 
-function RouteFormModal({ initial, onSave, onClose }) {
-  const isEditing = Boolean(initial?.id)
-  const [form, setForm] = useState(
-    isEditing
-      ? { ...BLANK_FORM, ...initial }
-      : { ...BLANK_FORM }
-  )
+function RouteFormModal({ initial, onClose }) {
+  const isEditing = Boolean(initial?.scheduleId)
+  const [form, setForm] = useState(isEditing ? { ...BLANK_FORM, ...initial } : { ...BLANK_FORM })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
 
   function handleChange(e) {
     const { name, value } = e.target
     setForm(prev => ({ ...prev, [name]: value }))
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    // TODO: replace with Firebase createRoute / updateRoute call
-    onSave(form)
-    onClose()
+    setSaving(true)
+    setErr('')
+    try {
+      if (isEditing) {
+        await updateSchedule(initial.scheduleId, form)
+      } else {
+        await createSchedule(form)
+      }
+      onClose()
+    } catch (ex) {
+      setErr(ex.message ?? 'Save failed')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -249,7 +160,7 @@ function RouteFormModal({ initial, onSave, onClose }) {
       <div className="modal">
         <div className="modal__header">
           <h2 className="modal__title" id="modal-title">
-            {isEditing ? 'Edit Route' : 'Add New Route'}
+            {isEditing ? 'Edit Route / Schedule' : 'Add New Route / Schedule'}
           </h2>
           <button className="modal__close" onClick={onClose} aria-label="Close">
             <IconClose />
@@ -258,67 +169,31 @@ function RouteFormModal({ initial, onSave, onClose }) {
 
         <form onSubmit={handleSubmit}>
           <div className="modal__body">
-            {/* Route name */}
+            {err && <p style={{ color: '#c0392b', fontSize: 13, margin: 0 }}>{err}</p>}
+
+            {/* Schedule ID */}
             <div className="form-group">
-              <label className="form-label" htmlFor="rm-name">Route Name</label>
-              <input id="rm-name" name="name" className="form-input"
-                placeholder="e.g. North Zone – Morning Run"
-                value={form.name} onChange={handleChange} required />
+              <label className="form-label" htmlFor="rm-id">Schedule ID</label>
+              <input id="rm-id" name="scheduleId" className="form-input"
+                placeholder="schedule_xxx"
+                value={form.scheduleId} onChange={handleChange} required
+                readOnly={isEditing} />
             </div>
 
-            <div className="form-row">
+            <div className="form-row" style={{ marginTop: 12 }}>
               {/* Zone */}
               <div className="form-group">
                 <label className="form-label" htmlFor="rm-zone">Zone</label>
-                <select id="rm-zone" name="zone" className="form-select"
-                  value={form.zone} onChange={handleChange} required>
-                  <option value="">Select zone…</option>
-                  {['North Zone', 'East Zone', 'Central Zone', 'South Zone', 'West Zone'].map(z => (
-                    <option key={z} value={z}>{z}</option>
-                  ))}
-                </select>
+                <input id="rm-zone" name="zone" className="form-input"
+                  placeholder="e.g. Kaduwela"
+                  value={form.zone} onChange={handleChange} required />
               </div>
 
-              {/* Waste type */}
+              {/* Collection date */}
               <div className="form-group">
-                <label className="form-label" htmlFor="rm-waste">Waste Type</label>
-                <select id="rm-waste" name="wasteType" className="form-select"
-                  value={form.wasteType} onChange={handleChange}>
-                  {['General', 'Recyclable', 'Organic', 'Mixed', 'Other'].map(w => (
-                    <option key={w} value={w}>{w}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Driver */}
-              <div className="form-group">
-                <label className="form-label" htmlFor="rm-driver">Driver</label>
-                <input id="rm-driver" name="driver" className="form-input"
-                  placeholder="Driver name"
-                  value={form.driver} onChange={handleChange} required />
-              </div>
-
-              {/* Vehicle */}
-              <div className="form-group">
-                <label className="form-label" htmlFor="rm-vehicle">Vehicle ID</label>
-                <input id="rm-vehicle" name="vehicle" className="form-input"
-                  placeholder="e.g. GH-2341-A"
-                  value={form.vehicle} onChange={handleChange} required />
-              </div>
-
-              {/* Date */}
-              <div className="form-group">
-                <label className="form-label" htmlFor="rm-date">Date</label>
-                <input id="rm-date" name="date" type="date" className="form-input"
-                  value={form.date} onChange={handleChange} required />
-              </div>
-
-              {/* Stops */}
-              <div className="form-group">
-                <label className="form-label" htmlFor="rm-stops">Stops</label>
-                <input id="rm-stops" name="stops" type="number" min="1" className="form-input"
-                  placeholder="e.g. 18"
-                  value={form.stops} onChange={handleChange} required />
+                <label className="form-label" htmlFor="rm-date">Collection Date</label>
+                <input id="rm-date" name="collectionDate" type="date" className="form-input"
+                  value={form.collectionDate} onChange={handleChange} required />
               </div>
 
               {/* Start time */}
@@ -335,26 +210,59 @@ function RouteFormModal({ initial, onSave, onClose }) {
                   value={form.endTime} onChange={handleChange} required />
               </div>
 
+              {/* Waste type */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="rm-waste">Waste Type</label>
+                <select id="rm-waste" name="wasteType" className="form-select"
+                  value={form.wasteType} onChange={handleChange}>
+                  {['general', 'recyclable', 'organic', 'mixed', 'other'].map(w => (
+                    <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Assigned vehicle */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="rm-vehicle">Assigned Vehicle ID</label>
+                <input id="rm-vehicle" name="assignedVehicleId" className="form-input"
+                  placeholder="e.g. WP-ABC-1234"
+                  value={form.assignedVehicleId} onChange={handleChange} />
+              </div>
+
+              {/* Assigned driver */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="rm-driver">Assigned Driver ID</label>
+                <input id="rm-driver" name="assignedDriverId" className="form-input"
+                  placeholder="driver_xxx"
+                  value={form.assignedDriverId} onChange={handleChange} />
+              </div>
+
               {/* Status */}
               <div className="form-group">
                 <label className="form-label" htmlFor="rm-status">Status</label>
                 <select id="rm-status" name="status" className="form-select"
                   value={form.status} onChange={handleChange}>
                   <option value="scheduled">Scheduled</option>
-                  <option value="in-progress">In Progress</option>
+                  <option value="in_progress">In Progress</option>
                   <option value="completed">Completed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
               </div>
             </div>
+
+            {/* Notes */}
+            <div className="form-group" style={{ marginTop: 12 }}>
+              <label className="form-label" htmlFor="rm-notes">Notes (optional)</label>
+              <textarea id="rm-notes" name="notes" className="form-textarea"
+                placeholder="Any additional notes…"
+                value={form.notes} onChange={handleChange} />
+            </div>
           </div>
 
           <div className="modal__footer">
-            <button type="button" className="btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn-primary">
-              {isEditing ? 'Save Changes' : 'Add Route'}
+            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? 'Saving…' : (isEditing ? 'Save Changes' : 'Add Route')}
             </button>
           </div>
         </form>
@@ -364,55 +272,49 @@ function RouteFormModal({ initial, onSave, onClose }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RoutesPage
+// RoutesPage — real-time Firestore via `schedules` collection
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function RoutesPage() {
-  // ── Local UI state ──────────────────────────────────────────────────────────
-  // NOTE: In production, `routes` will be populated by a Firebase service call.
-  // Replace useState(ROUTES_DATA) with a useEffect that fetches from Firestore.
-  const [routes, setRoutes] = useState(ROUTES_DATA)
+  const [routes, setRoutes]       = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [fsError, setFsError]     = useState('')
   const [search, setSearch]       = useState('')
   const [statusFilter, setFilter] = useState('all')
-  const [modal, setModal]         = useState(null)  // null | { mode: 'add'|'edit', route }
+  const [modal, setModal]         = useState(null) // null | { mode, route }
 
-  // ── Derived display list ────────────────────────────────────────────────────
+  // ── Real-time Firestore listener ──────────────────────────────────────────
+  useEffect(() => {
+    const unsub = subscribeSchedules(
+      (data) => { setRoutes(data); setLoading(false); setFsError('') },
+      (err)  => { setFsError(err.message ?? 'Failed to load schedules'); setLoading(false) },
+    )
+    return unsub // cleanup on unmount
+  }, [])
+
+  // ── Derived display list ──────────────────────────────────────────────────
   const displayed = routes.filter(r => {
     const q = search.toLowerCase()
-    const matchesSearch = !q || [r.id, r.name, r.zone, r.driver, r.vehicle, r.wasteType]
-      .some(f => f.toLowerCase().includes(q))
+    const matchesSearch = !q || [
+      r.scheduleId, r.zone, r.wasteType,
+      r.assignedVehicleId, r.assignedDriverId,
+    ].some(f => (f || '').toLowerCase().includes(q))
     const matchesStatus = statusFilter === 'all' || r.status === statusFilter
     return matchesSearch && matchesStatus
   })
 
   const summary = buildSummary(routes)
 
-  // ── Modal handlers ──────────────────────────────────────────────────────────
-  function openAdd()         { setModal({ mode: 'add',  route: null }) }
-  function openEdit(route)   { setModal({ mode: 'edit', route }) }
-  function closeModal()      { setModal(null) }
-
-  // UI-only save — replaces/appends in local state.
-  // TODO: replace body with Firebase createRoute() / updateRoute() call.
-  function handleSave(formData) {
-    if (modal?.mode === 'edit') {
-      setRoutes(prev => prev.map(r => r.id === modal.route.id ? { ...r, ...formData } : r))
-    } else {
-      const newId = `RT-${1000 + routes.length + 1}`
-      setRoutes(prev => [{ ...formData, id: newId, stops: Number(formData.stops) }, ...prev])
-    }
+  async function handleDelete(route) {
+    if (!confirm(`Delete schedule ${route.scheduleId}?`)) return
+    try { await deleteSchedule(route.scheduleId) }
+    catch (ex) { alert(ex.message) }
   }
 
-  // UI-only delete.
-  // TODO: replace with Firebase deleteRoute() call + confirmation dialog.
-  function handleDelete(id) {
-    setRoutes(prev => prev.filter(r => r.id !== id))
-  }
-
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* ── Page header ── */}
+      {/* Page header */}
       <header className="rm-header">
         <div className="rm-header__text">
           <h1 className="rm-header__title">Route Management</h1>
@@ -420,13 +322,12 @@ export default function RoutesPage() {
             Plan, assign and monitor waste collection routes.
           </p>
         </div>
-        <button className="btn-primary" onClick={openAdd}>
-          <IconPlus />
-          Add Route
+        <button className="btn-primary" onClick={() => setModal({ mode: 'add', route: null })}>
+          <IconPlus /> Add Route
         </button>
       </header>
 
-      {/* ── Summary chips ── */}
+      {/* Summary chips — calculated from live Firestore data */}
       <div className="rm-summary" role="region" aria-label="Route statistics">
         {summary.map(s => (
           <div key={s.label} className="rm-summary-chip">
@@ -436,20 +337,19 @@ export default function RoutesPage() {
         ))}
       </div>
 
-      {/* ── Toolbar ── */}
+      {/* Toolbar */}
       <div className="rm-toolbar">
         <div className="rm-search-wrap">
           <IconSearch />
           <input
             className="rm-search"
             type="search"
-            placeholder="Search by route, zone, driver, vehicle…"
+            placeholder="Search by zone, vehicle ID, driver ID…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             aria-label="Search routes"
           />
         </div>
-
         <select
           className="rm-filter"
           value={statusFilter}
@@ -458,13 +358,13 @@ export default function RoutesPage() {
         >
           <option value="all">All Statuses</option>
           <option value="scheduled">Scheduled</option>
-          <option value="in-progress">In Progress</option>
+          <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
         </select>
       </div>
 
-      {/* ── Routes table card ── */}
+      {/* Routes table card */}
       <div className="rm-table-card">
         <div className="rm-table-card__header">
           <h2 className="rm-table-card__title">
@@ -475,25 +375,37 @@ export default function RoutesPage() {
           </h2>
         </div>
 
-        {displayed.length === 0 ? (
+        {loading ? (
+          <div className="rm-empty"><p className="rm-empty__title">Loading…</p></div>
+        ) : fsError ? (
+          <div className="rm-empty">
+            <p className="rm-empty__title">Error</p>
+            <p className="rm-empty__sub">{fsError}</p>
+          </div>
+        ) : displayed.length === 0 ? (
           <div className="rm-empty">
             <IconRoute />
-            <p className="rm-empty__title">No routes found</p>
-            <p className="rm-empty__sub">Try adjusting your search or filter.</p>
+            <p className="rm-empty__title">
+              {routes.length === 0 ? 'No routes yet' : 'No routes found'}
+            </p>
+            <p className="rm-empty__sub">
+              {routes.length === 0
+                ? 'Add the first route to get started.'
+                : 'Try adjusting your search or filter.'}
+            </p>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="rm-table">
               <thead>
                 <tr>
-                  <th scope="col">Route ID</th>
-                  <th scope="col">Route Name</th>
+                  <th scope="col">Schedule ID</th>
                   <th scope="col">Zone</th>
-                  <th scope="col">Driver</th>
-                  <th scope="col">Vehicle</th>
-                  <th scope="col">Waste Type</th>
+                  <th scope="col">Date</th>
                   <th scope="col">Time</th>
-                  <th scope="col">Stops</th>
+                  <th scope="col">Waste Type</th>
+                  <th scope="col">Vehicle ID</th>
+                  <th scope="col">Driver ID</th>
                   <th scope="col">Status</th>
                   <th scope="col">Actions</th>
                 </tr>
@@ -501,40 +413,43 @@ export default function RoutesPage() {
               <tbody>
                 {displayed.map(route => {
                   const { label, mod } = getStatusMeta(route.status)
+                  // collectionDate may be a Firestore Timestamp object or ISO string
+                  const dateStr = tsToDateStr(route.collectionDate) || '—'
                   return (
-                    <tr key={route.id}>
-                      <td>
-                        <span className="route-id">{route.id}</span>
-                      </td>
-                      <td><strong>{route.name}</strong></td>
-                      <td className="td-muted">{route.zone}</td>
-                      <td>{route.driver}</td>
-                      <td className="td-muted">{route.vehicle}</td>
-                      <td>
-                        <span className="waste-tag">{route.wasteType}</span>
-                      </td>
+                    <tr key={route.scheduleId}>
+                      <td><span className="route-id">{route.scheduleId}</span></td>
+                      <td>{route.zone || '—'}</td>
+                      <td className="td-muted">{dateStr}</td>
                       <td className="td-muted">
-                        {route.startTime} – {route.endTime}
+                        {route.startTime && route.endTime
+                          ? `${route.startTime} – ${route.endTime}`
+                          : '—'}
                       </td>
-                      <td className="td-muted">{route.stops}</td>
                       <td>
-                        <span className={`badge badge--${mod}`}>{label}</span>
+                        <span className="waste-tag">
+                          {route.wasteType
+                            ? route.wasteType.charAt(0).toUpperCase() + route.wasteType.slice(1)
+                            : '—'}
+                        </span>
                       </td>
+                      <td className="td-muted">{route.assignedVehicleId || '—'}</td>
+                      <td className="td-muted">{route.assignedDriverId || '—'}</td>
+                      <td><span className={`badge badge--${mod}`}>{label}</span></td>
                       <td>
                         <div className="rm-table__actions">
                           <button
                             className="btn-icon"
-                            onClick={() => openEdit(route)}
-                            title={`Edit ${route.id}`}
-                            aria-label={`Edit route ${route.id}`}
+                            onClick={() => setModal({ mode: 'edit', route })}
+                            title={`Edit ${route.scheduleId}`}
+                            aria-label={`Edit route ${route.scheduleId}`}
                           >
                             <IconEdit />
                           </button>
                           <button
                             className="btn-icon btn-icon--danger"
-                            onClick={() => handleDelete(route.id)}
-                            title={`Delete ${route.id}`}
-                            aria-label={`Delete route ${route.id}`}
+                            onClick={() => handleDelete(route)}
+                            title={`Delete ${route.scheduleId}`}
+                            aria-label={`Delete route ${route.scheduleId}`}
                           >
                             <IconTrash />
                           </button>
@@ -549,12 +464,10 @@ export default function RoutesPage() {
         )}
       </div>
 
-      {/* ── Add / Edit modal ── */}
       {modal && (
         <RouteFormModal
           initial={modal.route}
-          onSave={handleSave}
-          onClose={closeModal}
+          onClose={() => setModal(null)}
         />
       )}
     </>

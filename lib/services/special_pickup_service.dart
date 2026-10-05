@@ -160,4 +160,23 @@ class SpecialPickupService {
       } catch (_) {}
     }
   }
+
+  /// [DELETE] Alias matching project architecture documentation
+  Future<void> cancelPickupRequest(String requestId) => cancelPickup(requestId);
+
+  /// [UPDATE] Update pickup status (e.g. Scheduled, In Progress, Cancelled)
+  Future<void> updatePickupStatus(String requestId, String newStatus) async {
+    final index = _mockPickups.indexWhere((p) => p.requestId == requestId);
+    if (index != -1) {
+      _mockPickups[index] = _mockPickups[index].copyWith(status: newStatus);
+    }
+
+    if (_isFirebaseAvailable) {
+      try {
+        await _instance.collection('special_pickups').doc(requestId).update({
+          'status': newStatus,
+        });
+      } catch (_) {}
+    }
+  }
 }

@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isResidentRole(data) {
+      return data.role == 'resident';
+    }
+
+    // Users may only touch their own profile document.
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+
+      // CREATE: self only, and role must be resident (no self-promotion).
+      allow create: if isOwner(userId)
+                    && isResidentRole(request.resource.data);
+
+      // UPDATE: self only, and the role field must stay unchanged.
+      allow update: if isOwner(userId)
+                    && request.resource.data.role == resource.data.role;
+
+      // DELETE: self only (used by "Delete account").
+      allow delete: if isOwner(userId);
+    }
+  }
+}

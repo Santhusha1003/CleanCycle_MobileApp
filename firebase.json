@@ -1,0 +1,1 @@
+{"firestore":{"rules":"firestore.rules"},"flutter":{"platforms":{"android":{"default":{"projectId":"cleancyclemobileapp","appId":"1:734679342852:android:91c32a6cdfa47b98713a51","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"cleancyclemobileapp","configurations":{"android":"1:734679342852:android:91c32a6cdfa47b98713a51"}}}}}}

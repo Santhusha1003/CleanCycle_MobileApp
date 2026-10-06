@@ -443,3 +443,168 @@
   background: #fee8e8;
   color: #c0392b;
 }
+
+/* Overall portal dashboard: scope additions so shared cards on Reports and
+   other management pages keep their existing appearance. */
+.portal-dashboard .dash-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.portal-dashboard .dash-body {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.portal-dashboard .stat-card__top {
+  gap: 12px;
+}
+
+.portal-dashboard .stat-card__footer {
+  line-height: 1.5;
+}
+
+.portal-dashboard .quick-actions-card {
+  margin-bottom: 28px;
+}
+
+.portal-dashboard .quick-actions__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.portal-dashboard .quick-action-btn:focus-visible,
+.portal-dashboard .dash-table-scroll:focus-visible {
+  outline: 2px solid var(--cc-primary);
+  outline-offset: 3px;
+}
+
+.portal-dashboard .dash-notice {
+  padding: 12px 16px;
+  margin: 0 0 20px;
+  background: var(--cc-primary-light);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--cc-primary-dark);
+}
+
+.portal-dashboard .dash-notice--error {
+  background: #fee8e8;
+  color: #c0392b;
+  overflow-wrap: anywhere;
+}
+
+.portal-dashboard .dash-section-note {
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cc-text-secondary);
+}
+
+.portal-dashboard .dash-route-totals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+
+.portal-dashboard .dash-route-totals dt {
+  font-size: 12px;
+  color: var(--cc-text-secondary);
+}
+
+.portal-dashboard .dash-route-totals dd {
+  margin: 6px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--cc-text-primary);
+}
+
+.portal-dashboard .dash-empty {
+  padding: 28px 24px;
+  color: var(--cc-text-secondary);
+  font-size: 13px;
+  text-align: center;
+}
+
+.portal-dashboard .dash-table-scroll {
+  overflow-x: auto;
+}
+
+.portal-dashboard .activity-table {
+  min-width: 560px;
+}
+
+.portal-dashboard .activity-table a {
+  color: var(--cc-primary-dark);
+  font-weight: 600;
+}
+
+.portal-dashboard .dash-activity-type {
+  display: block;
+  font-size: 11px;
+  color: var(--cc-text-secondary);
+  margin-bottom: 4px;
+}
+
+.portal-dashboard .dash-activity-empty-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--cc-border);
+}
+
+.portal-dashboard .dash-activity-empty-grid > div {
+  padding: 18px 24px;
+}
+
+.portal-dashboard .dash-activity-empty-grid > div + div {
+  border-left: 1px solid var(--cc-border);
+}
+
+.portal-dashboard .dash-activity-empty-grid h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--cc-text-primary);
+}
+
+.portal-dashboard .dash-activity-empty-grid p {
+  font-size: 12px;
+  color: var(--cc-text-secondary);
+}
+
+.portal-dashboard .badge--unknown {
+  background: var(--cc-surface);
+  color: var(--cc-text-secondary);
+}
+
+@media (max-width: 1200px) {
+  .portal-dashboard .dash-stats,
+  .portal-dashboard .quick-actions__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .portal-dashboard .dash-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .portal-dashboard .dash-stats,
+  .portal-dashboard .quick-actions__grid,
+  .portal-dashboard .dash-activity-empty-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .portal-dashboard .dash-activity-empty-grid > div + div {
+    border-left: none;
+    border-top: 1px solid var(--cc-border);
+  }
+
+  .portal-dashboard .activity-card__header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .portal-dashboard .status-row__bar-track {
+    width: 48px;
+  }
+}

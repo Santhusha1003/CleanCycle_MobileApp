@@ -8,7 +8,7 @@
  * safe to include in client-side code. They are NOT admin/service-account
  * credentials.
  *
- * TEMPORARY DEV AUTH:
+ * TEMPORARY DEVELOPMENT AUTHENTICATION:
  * Anonymous sign-in is used so that `request.auth != null` is satisfied for
  * the temporary development Firestore rules. Once Member 01 completes Firebase
  * Authentication and role management, replace signInAnonymously() with the
@@ -17,8 +17,8 @@
  * system is ready.
  */
 
-import { initializeApp } from 'firebase/app'
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth'
+import { getApp, getApps, initializeApp } from 'firebase/app'
+import { getAuth, signInAnonymously } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
 // Firebase Web config — same project as Flutter mobile app
@@ -33,31 +33,31 @@ const firebaseConfig = {
 }
 
 // Initialize Firebase (idempotent — safe to call multiple times)
-const app  = initializeApp(firebaseConfig)
+const app  = getApps().some((app) => app.name === '[DEFAULT]')
+  ? getApp()
+  : initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db   = getFirestore(app)
 
-// ── TEMPORARY DEV AUTH ───────────────────────────────────────────────────────
+// TEMPORARY DEVELOPMENT AUTHENTICATION
 // Sign in anonymously so that request.auth != null is satisfied.
 // This mirrors the approach used in the Flutter SplashScreen.
-// TODO: Replace with proper role-based sign-in when Member 01's auth is ready.
-let _authReady = false
+// Must later be replaced by Member 01's proper authentication and role-based
+// access system. Share one pending sign-in across bootstrap, listeners and CRUD.
+let authPromise = null
 
 export function ensureDevAuth() {
-  return new Promise((resolve, reject) => {
-    if (_authReady && auth.currentUser) {
-      resolve(auth.currentUser)
-      return
-    }
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        _authReady = true
-        resolve(user)
-      }
+  if (!authPromise) {
+    authPromise = (async () => {
+      // Restore any persisted session before deciding to create an anonymous user.
+      await auth.authStateReady()
+      if (auth.currentUser) return auth.currentUser
+      const credential = await signInAnonymously(auth)
+      return credential.user
+    })().finally(() => {
+      // Allow retry after failure, or a new sign-in if the session is later lost.
+      authPromise = null
     })
-    // Trigger anonymous sign-in if not already signed in
-    if (!auth.currentUser) {
-      signInAnonymously(auth).catch(reject)
-    }
-  })
+  }
+  return authPromise
 }

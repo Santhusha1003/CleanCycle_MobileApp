@@ -1,6 +1,36 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isResidentRole(data) {
+      return data.role == 'resident';
+    }
+
+    // =========================================================
+    // USER PROFILE RULES
+    // =========================================================
+
+    // Users may only touch their own profile document.
+    match /users/{userId} {
+
+      allow read: if isOwner(userId);
+
+      // CREATE: self only, and role must be resident.
+      allow create: if isOwner(userId)
+                    && isResidentRole(request.resource.data);
+
+      // UPDATE: self only, and role field must stay unchanged.
+      allow update: if isOwner(userId)
+                    && request.resource.data.role == resource.data.role;
+
+      // DELETE: self only.
+      allow delete: if isOwner(userId);
+    }
 
     // ─── TEMPORARY DEVELOPMENT RULES ────────────────────────────────────────
     // Access is restricted to authenticated Firebase users only.
@@ -28,9 +58,19 @@ service cloud.firestore {
       allow create, read, update, delete: if request.auth != null;
     }
 
+    // =========================================================
+    // COLLECTION SCHEDULE RULES
+    // Temporary authenticated access for development/testing.
+    // =========================================================
+
     match /schedules/{scheduleId} {
-      allow create, read, update, delete: if request.auth != null;
+      allow create, read, update, delete:
+          if request.auth != null;
     }
 
+    match /missedCollectionReports/{reportId} {
+      allow create, read:
+      if request.auth != null;
+}
   }
 }

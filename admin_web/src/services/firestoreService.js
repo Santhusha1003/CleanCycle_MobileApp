@@ -69,19 +69,35 @@ export function subscribeCollection(collectionName, onData, onError, queryOption
     q = query(q, where(field, op, value))
   }
 
-  const unsub = onSnapshot(
-    q,
-    (snapshot) => {
-      const docs = snapshot.docs.map((d) => ({ _docId: d.id, ...d.data() }))
-      onData(docs)
-    },
-    (err) => {
-      console.error(`[Firestore] ${collectionName} listener error:`, err)
-      onError(err)
-    },
-  )
+  let cancelled = false
+  let unsubscribe = null
+  const reportError = (err) => {
+    if (cancelled) return
+    console.error(`[Firestore] ${collectionName} listener error:`, err)
+    onError(err)
+  }
 
-  return unsub
+  // TEMPORARY DEVELOPMENT AUTHENTICATION: never start a read before sign-in.
+  // Replace with Member 01's proper authentication and role-based access system.
+  ensureDevAuth().then(() => {
+    if (cancelled) return
+    unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (cancelled) return
+        const docs = snapshot.docs.map((d) => ({ _docId: d.id, ...d.data() }))
+        onData(docs)
+      },
+      reportError,
+    )
+  }).catch(reportError)
+
+  // Keep synchronous cleanup for useEffect, including StrictMode/unmount while
+  // authentication is pending.
+  return () => {
+    cancelled = true
+    unsubscribe?.()
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

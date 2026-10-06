@@ -6,6 +6,10 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
 
   const CollectionScheduleDetailsScreen({super.key, required this.schedule});
 
+  // ============================================================
+  // FORMAT DATE
+  // ============================================================
+
   String _formatDate(DateTime date) {
     const months = [
       'January',
@@ -36,6 +40,25 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
         '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
+  // ============================================================
+  // SET REMINDER
+  // ============================================================
+
+  void _setReminder(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Reminder set for ${schedule.wasteType}.'),
+        backgroundColor: const Color(0xFF159447),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,11 +68,11 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.black),
         title: const Text(
           'Collection Details',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
-        iconTheme: const IconThemeData(color: Colors.black),
       ),
 
       body: SingleChildScrollView(
@@ -58,7 +81,10 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Waste Type
+            // ==================================================
+            // WASTE TYPE
+            // ==================================================
+
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -76,7 +102,7 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
                     ),
                     child: const Icon(
                       Icons.recycling,
-                      color: Colors.green,
+                      color: Color(0xFF159447),
                       size: 30,
                     ),
                   ),
@@ -110,7 +136,9 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Date
+            // ==================================================
+            // COLLECTION DATE
+            // ==================================================
             _buildInfoCard(
               icon: Icons.calendar_today_outlined,
               title: 'Collection Date',
@@ -119,7 +147,9 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // Time
+            // ==================================================
+            // COLLECTION TIME
+            // ==================================================
             _buildInfoCard(
               icon: Icons.access_time,
               title: 'Collection Time',
@@ -128,7 +158,9 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // Status
+            // ==================================================
+            // STATUS
+            // ==================================================
             _buildInfoCard(
               icon: Icons.info_outline,
               title: 'Status',
@@ -137,7 +169,9 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // Accepted Items
+            // ==================================================
+            // ACCEPTED ITEMS
+            // ==================================================
             const Text(
               'Accepted Items',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -154,31 +188,43 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
                 border: Border.all(color: Colors.grey.shade300),
               ),
 
-              child: Column(
-                children: schedule.acceptedItems.map((item) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.check_circle,
-                          color: Colors.green,
-                          size: 20,
-                        ),
+              child: schedule.acceptedItems.isEmpty
+                  ? const Text(
+                      'No accepted items listed.',
+                      style: TextStyle(color: Colors.grey),
+                    )
+                  : Column(
+                      children: schedule.acceptedItems.map((item) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 7),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.check_circle,
+                                color: Color(0xFF159447),
+                                size: 20,
+                              ),
 
-                        const SizedBox(width: 10),
+                              const SizedBox(width: 10),
 
-                        Text(item, style: const TextStyle(fontSize: 15)),
-                      ],
+                              Expanded(
+                                child: Text(
+                                  item,
+                                  style: const TextStyle(fontSize: 15),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  );
-                }).toList(),
-              ),
             ),
 
             const SizedBox(height: 24),
 
-            // Instructions
+            // ==================================================
+            // INSTRUCTIONS
+            // ==================================================
             const Text(
               'Instructions',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -193,7 +239,6 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
                 color: const Color(0xFFFFF8E1),
                 borderRadius: BorderRadius.circular(12),
               ),
-
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -212,11 +257,45 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+            const SizedBox(height: 26),
+
+            // ==================================================
+            // SET REMINDER BUTTON
+            // ==================================================
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  _setReminder(context);
+                },
+                icon: const Icon(Icons.notifications_active_outlined),
+                label: const Text(
+                  'Set Reminder',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF159447),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
+
+  // ============================================================
+  // INFORMATION CARD
+  // ============================================================
 
   Widget _buildInfoCard({
     required IconData icon,
@@ -234,9 +313,17 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
 
       child: Row(
         children: [
-          Icon(icon, color: Colors.green, size: 25),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F5E9),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: const Color(0xFF159447), size: 22),
+          ),
 
-          const SizedBox(width: 15),
+          const SizedBox(width: 14),
 
           Expanded(
             child: Column(

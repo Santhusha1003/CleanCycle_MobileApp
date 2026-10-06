@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../models/collection_schedule.dart';
 import '../services/collection_schedule_service.dart';
+import '../widgets/collection_bottom_nav.dart';
 
 import 'collection_schedule_details_screen.dart';
 import 'collection_calendar_screen.dart';
 import 'waste_categories_screen.dart';
+import 'recycling_tips_screen.dart';
 import 'collection_history_screen.dart';
 import 'missed_collection_report_screen.dart';
 
@@ -143,13 +145,24 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
   }
 
   // ============================================================
-  // OPEN RECYCLING GUIDE
+  // OPEN WASTE CATEGORIES
   // ============================================================
 
-  void _openRecyclingGuide() {
+  void _openWasteCategories() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const WasteCategoriesScreen()),
+    );
+  }
+
+  // ============================================================
+  // OPEN RECYCLING TIPS
+  // ============================================================
+
+  void _openRecyclingTips() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const RecyclingTipsScreen()),
     );
   }
 
@@ -193,14 +206,12 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-
+        iconTheme: const IconThemeData(color: Colors.black),
         title: const Text(
           'Collection Schedule',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
         ),
-
         actions: [
-          // CALENDAR
           IconButton(
             tooltip: 'Collection Calendar',
             onPressed: _openCalendar,
@@ -209,10 +220,14 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
               color: Colors.black,
             ),
           ),
-
           const SizedBox(width: 6),
         ],
       ),
+
+      // ========================================================
+      // BOTTOM NAVIGATION
+      // ========================================================
+      bottomNavigationBar: const CollectionBottomNav(currentIndex: 1),
 
       // ========================================================
       // BODY
@@ -226,12 +241,10 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
           Container(
             margin: const EdgeInsets.fromLTRB(16, 16, 16, 10),
             padding: const EdgeInsets.all(4),
-
             decoration: BoxDecoration(
               color: Colors.grey.shade200,
               borderRadius: BorderRadius.circular(10),
             ),
-
             child: Row(
               children: [
                 Expanded(
@@ -245,7 +258,6 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
                     },
                   ),
                 ),
-
                 Expanded(
                   child: _filterButton(
                     title: 'This Month',
@@ -262,17 +274,32 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
           ),
 
           // ====================================================
-          // RECYCLING GUIDE
+          // WASTE CATEGORIES
           // ====================================================
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: _featureButton(
-              icon: Icons.recycling,
-              title: 'Recycling Guide',
-              description: 'Learn how to separate your waste correctly.',
+              icon: Icons.category_outlined,
+              title: 'Waste Categories',
+              description: 'Learn about different types of waste.',
               backgroundColor: const Color(0xFFE8F5E9),
               borderColor: const Color(0xFFB7DFBF),
-              onTap: _openRecyclingGuide,
+              onTap: _openWasteCategories,
+            ),
+          ),
+
+          // ====================================================
+          // RECYCLING GUIDE
+          // ====================================================
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: _featureButton(
+              icon: Icons.recycling,
+              title: 'Recycling Guide',
+              description: 'Simple tips for a greener tomorrow.',
+              backgroundColor: const Color(0xFFE8F5E9),
+              borderColor: const Color(0xFFB7DFBF),
+              onTap: _openRecyclingTips,
             ),
           ),
 
@@ -312,7 +339,6 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
           Expanded(
             child: StreamBuilder<List<CollectionSchedule>>(
               stream: _scheduleService.getSchedules(),
-
               builder: (context, snapshot) {
                 // LOADING
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -366,9 +392,7 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
                 // SHOW SCHEDULES
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-
                   itemCount: schedules.length,
-
                   itemBuilder: (context, index) {
                     final schedule = schedules[index];
 
@@ -394,23 +418,17 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
   }) {
     return GestureDetector(
       onTap: onTap,
-
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
-
         decoration: BoxDecoration(
           color: selected ? const Color(0xFF159447) : Colors.transparent,
-
           borderRadius: BorderRadius.circular(8),
         ),
-
         child: Text(
           title,
           textAlign: TextAlign.center,
-
           style: TextStyle(
             color: selected ? Colors.white : Colors.black87,
-
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -433,30 +451,24 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-
       child: Container(
         width: double.infinity,
-
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: borderColor),
         ),
-
         child: Row(
           children: [
             // ICON
             Container(
               width: 44,
               height: 44,
-
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
               ),
-
               child: Icon(icon, color: const Color(0xFF159447), size: 27),
             ),
 
@@ -474,9 +486,7 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                   const SizedBox(height: 3),
-
                   Text(
                     description,
                     style: const TextStyle(fontSize: 12, color: Colors.black54),
@@ -500,11 +510,8 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
     return Card(
       color: Colors.white,
       elevation: 1,
-
       margin: const EdgeInsets.only(bottom: 12),
-
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
 
@@ -512,12 +519,10 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
         leading: Container(
           width: 48,
           height: 48,
-
           decoration: BoxDecoration(
             color: const Color(0xFFE8F5E9),
             borderRadius: BorderRadius.circular(10),
           ),
-
           child: Icon(
             _getWasteIcon(schedule.wasteType),
             color: const Color(0xFF159447),

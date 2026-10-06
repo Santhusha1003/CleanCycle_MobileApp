@@ -5,6 +5,9 @@ import 'waste_segregation_guide_screen.dart';
 class WasteCategoriesScreen extends StatelessWidget {
   const WasteCategoriesScreen({super.key});
 
+  static const Color primaryGreen = Color(0xFF159447);
+  static const Color lightGreen = Color(0xFFE8F5E9);
+
   // ============================================================
   // OPEN SEGREGATION GUIDE
   // ============================================================
@@ -17,6 +20,10 @@ class WasteCategoriesScreen extends StatelessWidget {
       ),
     );
   }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -44,18 +51,18 @@ class WasteCategoriesScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFE8F5E9),
+              color: lightGreen,
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, color: Color(0xFF159447)),
+                Icon(Icons.info_outline, color: primaryGreen),
                 SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Learn how to separate your waste correctly '
-                    'before collection.',
+                    'Learn about different waste categories '
+                    'and how to separate them correctly.',
                     style: TextStyle(fontSize: 14, height: 1.4),
                   ),
                 ),
@@ -63,10 +70,10 @@ class WasteCategoriesScreen extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
 
           // ====================================================
-          // SEGREGATION GUIDE BUTTON
+          // SEGREGATION GUIDE
           // ====================================================
           InkWell(
             onTap: () {
@@ -82,18 +89,17 @@ class WasteCategoriesScreen extends StatelessWidget {
               ),
               child: const Row(
                 children: [
-                  // ICON
                   SizedBox(
                     width: 48,
                     height: 48,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: Color(0xFFE8F5E9),
+                        color: lightGreen,
                         borderRadius: BorderRadius.all(Radius.circular(10)),
                       ),
                       child: Icon(
                         Icons.menu_book_outlined,
-                        color: Color(0xFF159447),
+                        color: primaryGreen,
                       ),
                     ),
                   ),
@@ -120,7 +126,7 @@ class WasteCategoriesScreen extends StatelessWidget {
                     ),
                   ),
 
-                  Icon(Icons.chevron_right, color: Color(0xFF159447)),
+                  Icon(Icons.chevron_right, color: primaryGreen),
                 ],
               ),
             ),
@@ -136,69 +142,52 @@ class WasteCategoriesScreen extends StatelessWidget {
           const SizedBox(height: 12),
 
           // ====================================================
-          // PLASTIC
+          // 1. GENERAL WASTE
           // ====================================================
           _categoryCard(
-            icon: Icons.local_drink_outlined,
-            title: 'Plastic',
-            description: 'Clean plastic bottles, containers and packaging.',
+            icon: Icons.delete_outline,
+            title: 'General Waste',
+            description: 'Non-recyclable household waste.',
+            acceptedItems: const [
+              'Used tissues',
+              'Food wrappers',
+              'Dirty packaging',
+              'Non-recyclable household waste',
+            ],
+            avoidItems: const [
+              'Recyclable items',
+              'Batteries',
+              'Electronic waste',
+            ],
+          ),
+
+          // ====================================================
+          // 2. RECYCLABLE WASTE
+          // ====================================================
+          _categoryCard(
+            icon: Icons.recycling,
+            title: 'Recyclable Waste',
+            description: 'Plastic, paper, glass and metal.',
             acceptedItems: const [
               'Plastic bottles',
-              'Food containers',
-              'Plastic packaging',
+              'Paper and cardboard',
+              'Glass bottles and jars',
+              'Metal cans',
             ],
-            avoidItems: const ['Dirty plastic', 'Chemical containers'],
-          ),
-
-          // ====================================================
-          // PAPER
-          // ====================================================
-          _categoryCard(
-            icon: Icons.description_outlined,
-            title: 'Paper',
-            description: 'Dry and clean paper products can be recycled.',
-            acceptedItems: const [
-              'Newspapers',
-              'Cardboard',
-              'Office paper',
-              'Paper bags',
+            avoidItems: const [
+              'Dirty recyclables',
+              'Food-contaminated items',
+              'Hazardous containers',
             ],
-            avoidItems: const ['Wet paper', 'Food-stained paper'],
           ),
 
           // ====================================================
-          // GLASS
-          // ====================================================
-          _categoryCard(
-            icon: Icons.wine_bar_outlined,
-            title: 'Glass',
-            description: 'Separate clean glass bottles and jars carefully.',
-            acceptedItems: const ['Glass bottles', 'Glass jars'],
-            avoidItems: const ['Broken mirrors', 'Ceramics'],
-          ),
-
-          // ====================================================
-          // METAL
-          // ====================================================
-          _categoryCard(
-            icon: Icons.inventory_2_outlined,
-            title: 'Metal',
-            description: 'Clean metal cans and containers before recycling.',
-            acceptedItems: const [
-              'Aluminium cans',
-              'Food cans',
-              'Metal containers',
-            ],
-            avoidItems: const ['Electronic items', 'Hazardous metal waste'],
-          ),
-
-          // ====================================================
-          // ORGANIC WASTE
+          // 3. ORGANIC WASTE
           // ====================================================
           _categoryCard(
             icon: Icons.compost_outlined,
             title: 'Organic Waste',
-            description: 'Biodegradable household and garden waste.',
+            description: 'Food waste and garden waste.',
             acceptedItems: const [
               'Fruit and vegetable waste',
               'Food scraps',
@@ -206,6 +195,44 @@ class WasteCategoriesScreen extends StatelessWidget {
               'Small garden waste',
             ],
             avoidItems: const ['Plastic bags', 'Glass', 'Metal'],
+          ),
+
+          // ====================================================
+          // 4. HAZARDOUS WASTE
+          // ====================================================
+          _categoryCard(
+            icon: Icons.warning_amber_rounded,
+            title: 'Hazardous Waste',
+            description: 'Batteries, chemicals and e-waste.',
+            acceptedItems: const [
+              'Used batteries',
+              'Electronic waste',
+              'Household chemicals',
+              'Small electrical items',
+            ],
+            avoidItems: const [
+              'Mixing with general waste',
+              'Open or leaking containers',
+            ],
+          ),
+
+          // ====================================================
+          // 5. SPECIAL WASTE
+          // ====================================================
+          _categoryCard(
+            icon: Icons.inventory_2_outlined,
+            title: 'Special Waste',
+            description: 'Bulky items and construction waste.',
+            acceptedItems: const [
+              'Old furniture',
+              'Large household items',
+              'Small construction waste',
+              'Other bulky items',
+            ],
+            avoidItems: const [
+              'Placing with normal household waste',
+              'Hazardous chemicals',
+            ],
           ),
 
           const SizedBox(height: 8),
@@ -223,12 +250,14 @@ class WasteCategoriesScreen extends StatelessWidget {
             child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.lightbulb_outline, color: Color(0xFF159447)),
+                Icon(Icons.lightbulb_outline, color: primaryGreen),
+
                 SizedBox(width: 12),
+
                 Expanded(
                   child: Text(
-                    'Tip: Keep recyclable items clean and dry '
-                    'before placing them out for collection.',
+                    'Tip: Separate waste into the correct '
+                    'category before collection.',
                     style: TextStyle(height: 1.4),
                   ),
                 ),
@@ -258,6 +287,7 @@ class WasteCategoriesScreen extends StatelessWidget {
       elevation: 1,
       margin: const EdgeInsets.only(bottom: 14),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -266,10 +296,10 @@ class WasteCategoriesScreen extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: const Color(0xFFE8F5E9),
+            color: lightGreen,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: const Color(0xFF159447)),
+          child: Icon(icon, color: primaryGreen),
         ),
 
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -288,7 +318,7 @@ class WasteCategoriesScreen extends StatelessWidget {
               'Accepted Items',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF159447),
+                color: primaryGreen,
               ),
             ),
           ),
@@ -346,7 +376,7 @@ class WasteCategoriesScreen extends StatelessWidget {
           Icon(
             icon,
             size: 19,
-            color: accepted ? const Color(0xFF159447) : Colors.redAccent,
+            color: accepted ? primaryGreen : Colors.redAccent,
           ),
 
           const SizedBox(width: 10),

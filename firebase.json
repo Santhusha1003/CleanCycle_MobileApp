@@ -1,0 +1,27 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "cleancyclemobileapp",
+          "appId": "1:734679342852:android:91c32a6cdfa47b98713a51",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "cleancyclemobileapp",
+          "configurations": {
+            "android": "1:734679342852:android:91c32a6cdfa47b98713a51",
+            "ios": "1:734679342852:ios:338256a0bc515dbf713a51",
+            "web": "1:734679342852:web:894520d8cab8b98a713a51",
+            "windows": "1:734679342852:web:139a9ddcc8a23835713a51"
+          }
+        }
+      }
+    }
+  }
+}

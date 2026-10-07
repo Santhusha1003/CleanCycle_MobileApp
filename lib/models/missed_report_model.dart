@@ -6,6 +6,7 @@ class MissedReportModel {
   final String collectionType;
   final DateTime scheduledDate;
   final String description;
+  final String address;
   final String? photoUrl;
   final String status;
   final DateTime reportedOn;
@@ -16,6 +17,7 @@ class MissedReportModel {
     required this.collectionType,
     required this.scheduledDate,
     required this.description,
+    this.address = '',
     this.photoUrl,
     this.status = 'Reported',
     required this.reportedOn,
@@ -28,6 +30,7 @@ class MissedReportModel {
       'collectionType': collectionType,
       'scheduledDate': Timestamp.fromDate(scheduledDate),
       'description': description,
+      'address': address,
       'photoUrl': photoUrl,
       'status': status,
       'reportedOn': Timestamp.fromDate(reportedOn),
@@ -47,6 +50,7 @@ class MissedReportModel {
       collectionType: map['collectionType'] ?? '',
       scheduledDate: parseDate(map['scheduledDate']),
       description: map['description'] ?? '',
+      address: map['address'] ?? '',
       photoUrl: map['photoUrl'],
       status: map['status'] ?? 'Reported',
       reportedOn: parseDate(map['reportedOn']),
@@ -64,6 +68,7 @@ class MissedReportModel {
     String? collectionType,
     DateTime? scheduledDate,
     String? description,
+    String? address,
     String? photoUrl,
     String? status,
     DateTime? reportedOn,
@@ -74,6 +79,7 @@ class MissedReportModel {
       collectionType: collectionType ?? this.collectionType,
       scheduledDate: scheduledDate ?? this.scheduledDate,
       description: description ?? this.description,
+      address: address ?? this.address,
       photoUrl: photoUrl ?? this.photoUrl,
       status: status ?? this.status,
       reportedOn: reportedOn ?? this.reportedOn,

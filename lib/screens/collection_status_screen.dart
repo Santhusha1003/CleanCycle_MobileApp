@@ -68,7 +68,7 @@ class _CollectionStatusScreenState extends State<CollectionStatusScreen> {
           ? null
           : AppBar(
               title: const Text(
-                'Collection Status Timeline',
+                'Collection Status',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
               backgroundColor: const Color(0xFF1B5E20),
@@ -80,89 +80,40 @@ class _CollectionStatusScreenState extends State<CollectionStatusScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildRequestHeaderCard(),
-            const SizedBox(height: 24),
-            const Text(
-              'Stage Progression Timeline',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1B3B2B),
+            _buildTimelineCard(),
+            const SizedBox(height: 20),
+            // Progress banner matching Screen 3
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFA5D6A7).withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.access_time, color: Color(0xFF2E7D32), size: 22),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Your collection is in progress.\nOur team is on the way!',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1B5E20),
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            _buildTimelineCard(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRequestHeaderCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                widget.requestId,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1B5E20),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _stages[_currentStage]['title'],
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2E7D32),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Special Bulky Waste Pickup',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade700,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Address: No. 42, Galle Road, Colombo 03',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildTimelineCard() {
     return Container(

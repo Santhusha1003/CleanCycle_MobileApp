@@ -223,66 +223,36 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Collector status row matching Screen 2
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 24,
-                                backgroundColor: const Color(0xFFE8F5E9),
-                                child: const Icon(
-                                  Icons.person_pin,
-                                  color: Color(0xFF2E7D32),
-                                  size: 32,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    driver.driverName,
-                                    style: const TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1B3B2B),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Truck: ${driver.vehicleNumber}',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               color: const Color(0xFFE8F5E9),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(10),
                             ),
+                            child: const Icon(Icons.local_shipping, color: Color(0xFF2E7D32), size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  'ESTIMATED ETA',
+                                  'Your Collector is on the way!',
                                   style: TextStyle(
-                                    fontSize: 9,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF2E7D32),
+                                    color: Color(0xFF1B3B2B),
                                   ),
                                 ),
+                                const SizedBox(height: 2),
                                 Text(
-                                  '~${driver.etaMinutes} min',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1B5E20),
+                                  'Estimated Arrival: ~ ${driver.etaMinutes} minutes',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
                                   ),
                                 ),
                               ],
@@ -290,51 +260,53 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       const Divider(height: 1),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
+
+                      // Driver profile row with photo avatar
                       Row(
                         children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Route details: Zone 3 -> Ward 12'),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.info_outline, size: 18),
-                              label: const Text('Route Info'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF2E7D32),
-                                side: const BorderSide(color: Color(0xFF2E7D32)),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                            ),
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor: const Color(0xFFE8F5E9),
+                            backgroundImage: const AssetImage('assets/images/driver_avatar.jpg'),
+                            child: const SizedBox.shrink(),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _callDriver(driver.driverPhone),
-                              icon: const Icon(Icons.phone, size: 18, color: Colors.white),
-                              label: const Text(
-                                'Call Driver',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  driver.driverName,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1B3B2B),
+                                  ),
                                 ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF2E7D32),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Collection Driver • ${driver.vehicleNumber}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
                                 ),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ],
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => _callDriver(driver.driverPhone),
+                            borderRadius: BorderRadius.circular(24),
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF2E7D32),
+                                shape: BoxShape.circle,
                               ),
+                              child: const Icon(Icons.phone, color: Colors.white, size: 20),
                             ),
                           ),
                         ],

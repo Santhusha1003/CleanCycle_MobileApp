@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'screens/tracking_dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await Firebase.initializeApp();
-  } catch (_) {
-    // Graceful offline fallback
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint('Firebase successfully connected to: ${DefaultFirebaseOptions.currentPlatform.projectId}');
+  } catch (e) {
+    debugPrint('Firebase initialization failed: $e');
   }
   runApp(const CleanCycleApp());
 }

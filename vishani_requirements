@@ -1,0 +1,173 @@
+Here is the complete project specification, phase division, file creation sequence, and testing plan formatted as a ready-to-save guide for your repository:
+
+```text
+================================================================================
+          CLEANCYCLE MOBILE APPLICATION — PROJECT BLUEPRINT (A TO Z)
+================================================================================
+Academic Context : IT3060 Human-Computer Interaction (Milestone 03)[cite: 3]
+Target Tech Stack: Flutter (Frontend) + Firebase (Firestore & Storage)[cite: 3, 4]
+Assigned Module  : Member 03 — Tracking & Collection Requests[cite: 5, 6]
+Git Work Branch  : feature/driver-support (base pulled from feature/municipal-operations)[cite: 4]
+Submission Window: 28.09.2026 – 09.10.2026[cite: 3]
+================================================================================
+
+1. PROJECT OVERVIEW & SCOPE
+--------------------------------------------------------------------------------
+CleanCycle is an urban municipal waste management system connecting residents 
+with collection authorities. Member 03's workload encompasses 10 high-fidelity 
+interfaces covering:
+  - Real-time waste collection route tracking and driver contact[cite: 5].
+  - Visual stage progression timeline for citizen collection status[cite: 5].
+  - CRUD Entity 1: Missed Collection Reporting & Receipt Management[cite: 3, 5].
+  - CRUD Entity 2: Multi-step Special Bulky Waste Pickup Wizard[cite: 3, 5].
+
+Academic Requirements to Fulfil[cite: 3]:
+  * Fully runnable mobile application matching the high-fidelity UI[cite: 3].
+  * At least 2 working CRUD operations backed by Firestore[cite: 3].
+  * Functional test cases mapped via a Requirements Traceability Matrix[cite: 3].
+  * Usability testing conducted with >= 5 real or proxy participants[cite: 3].
+
+
+2. COMPREHENSIVE UI DIRECTORY (10 SCREENS)[cite: 5, 6]
+--------------------------------------------------------------------------------
+Screen 01: Tracking Dashboard
+  - Top header with citizen greeting, avatar, and notification bell[cite: 5].
+  - Next Collection card (Date, Time, Category)[cite: 5].
+  - 4 Quick-Action Tiles: Track Collection, Report Missed, Special Pickup, Status[cite: 5].
+  - Bottom 4-tab Navigation Bar: Home, Track, Requests, Profile[cite: 5].
+
+Screen 02: Live Collection Tracking
+  - Full-screen interactive map with route lines and live truck marker[cite: 5].
+  - Bottom driver card: Name (Nalin Perera), ETA (~25 min), call button[cite: 5].
+
+Screen 03: Collection Status Timeline
+  - 5-stage vertical timeline: Request Received -> Assigned to Team -> 
+    In Progress -> Collected -> Completed[cite: 5].
+  - Direct deep-link from 'In Progress' to Live Tracking[cite: 5].
+
+Screen 04: Report Missed Collection (CRUD 1 — Create)
+  - Dropdown: Collection Type (Recyclable, Organic, Non-recyclable)[cite: 5].
+  - Calendar picker: Scheduled Date[cite: 5].
+  - Multi-line TextField: Problem Description[cite: 5].
+  - ImagePicker button: Add Photo (Optional)[cite: 5].
+  - Primary button: Submit Report[cite: 5].
+
+Screen 05: Missed Collection Details (CRUD 1 — Read / Update / Delete)
+  - Confirmation status badge and unique ID (#MC-20260812-001)[cite: 5].
+  - Summary table: Category, Date, Reported Time, Description[cite: 5].
+  - Attached photo preview with full-size viewer[cite: 5].
+  - Cancellation / withdraw action to satisfy Delete lifecycle[cite: 3].
+
+Screen 06: Special Waste Pickup (Landing Screen)
+  - Hero illustration of municipal truck[cite: 5].
+  - Informational prompt for bulky/hazardous items[cite: 5].
+  - Primary trigger: "New Pickup Request"[cite: 5].
+
+Screen 07: Select Waste Type (Wizard Step 1)
+  - Category selector cards: Furniture, E-Waste, Garden Waste, Debris, Other[cite: 5].
+
+Screen 08: Select Date & Time (Wizard Step 2)
+  - Interactive month calendar picker (e.g., August 2026)[cite: 5].
+  - Radio group for operational time windows (8-10 AM, 10-12 PM, 1-3 PM, 3-5 PM)[cite: 5].
+
+Screen 09: Pickup Details + Photo Upload (Wizard Step 3 — CRUD 2 Create)
+  - Category summary badge + default address selector with "Change" button[cite: 5].
+  - Multi-line TextField for specific item instructions/gate access[cite: 5].
+  - Multi-photo upload grid with [+] thumbnail trigger[cite: 5].
+  - Primary trigger: "Submit Request"[cite: 5].
+
+Screen 10: Request Status / Confirmation (Wizard Step 4 — CRUD 2 Read)
+  - Success verification graphic with generated ID (#SP-20260814-002)[cite: 5].
+  - Full receipt: Category, Date, Slot, Pickup Address, SLA notice[cite: 5].
+  - Primary action: "Back to Home"[cite: 5].
+
+
+3. FILE CREATION SEQUENCE (ORDER OF IMPLEMENTATION)
+--------------------------------------------------------------------------------
+Follow this strict dependency chain (Assets -> Storage -> Models -> Services -> UI):
+
+Step 01: [ASSETS] Define Local Graphics & Icons
+  - assets/images/special_pickup_truck.png
+  - assets/icons/furniture.png, ewaste.png, garden.png, debris.png
+
+Step 02: [SERVICE] lib/services/storage_service.dart
+  - Handles photo uploads to Firebase Storage buckets (/missed_reports, /special_pickups).
+  - Returns public HTTPS download URLs.
+
+Step 03: [MODEL] lib/models/missed_report_model.dart
+  - Attributes: reportId, userId, collectionType, scheduledDate, description,
+    photoUrl, status, reportedOn[cite: 5].
+  - Methods: toMap(), fromMap(DocumentSnapshot doc).
+
+Step 04: [MODEL] lib/models/special_pickup_model.dart
+  - Attributes: requestId, userId, wasteType, scheduledDate, timeSlot,
+    address, notes, photoUrls (List<String>), status, createdAt[cite: 5].
+  - Methods: toMap(), fromMap(DocumentSnapshot doc).
+
+Step 05: [MODEL] lib/models/driver_tracking_model.dart
+  - Attributes: driverId, driverName, driverPhone, currentLatitude,
+    currentLongitude, destinationLatitude, destinationLongitude, etaMinutes[cite: 5].
+  - Methods: toMap(), fromMap(DocumentSnapshot doc).
+
+Step 06: [SERVICE] lib/services/missed_report_service.dart (CRUD 1)[cite: 3]
+  - createReport(MissedReportModel, File? photo) -> Writes to Firestore[cite: 5].
+  - getReportStream(String reportId) -> Reads single report receipt[cite: 5].
+  - getUserReports(String userId) -> Reads collection list.
+  - updateReportDescription(String reportId, String desc) -> Update operation.
+  - cancelReport(String reportId) -> Delete operation.
+
+Step 07: [SERVICE] lib/services/special_pickup_service.dart (CRUD 2)[cite: 3]
+  - createPickupRequest(SpecialPickupModel, List<File> photos) -> Writes booking[cite: 5].
+  - getPickupStream(String requestId) -> Powers Screen 3 timeline & Screen 10 receipt[cite: 5].
+  - reschedulePickup(String requestId, DateTime newDate, String newSlot) -> Update.
+  - cancelPickup(String requestId) -> Delete.
+
+Step 08: [SERVICE] lib/services/tracking_service.dart
+  - streamDriverLocation(String driverId) -> Streams live GeoPoint coordinates[cite: 5].
+  - fetchNextCollection(String userId) -> Supplies next collection card[cite: 5].
+
+Step 09: [SCREENS] lib/screens/*.dart (Build in order of flow):
+  1. screens/tracking_dashboard_screen.dart (Screen 1)[cite: 5]
+  2. screens/live_tracking_screen.dart (Screen 2)[cite: 5]
+  3. screens/collection_status_screen.dart (Screen 3)[cite: 5]
+  4. screens/report_missed_screen.dart (Screen 4)[cite: 5]
+  5. screens/missed_details_screen.dart (Screen 5)[cite: 5]
+  6. screens/special_pickup_screen.dart (Screen 6)[cite: 5]
+  7. screens/select_waste_type_screen.dart (Screen 7)[cite: 5]
+  8. screens/select_date_time_screen.dart (Screen 8)[cite: 5]
+  9. screens/pickup_details_screen.dart (Screen 9)[cite: 5]
+  10. screens/request_submitted_screen.dart (Screen 10)[cite: 5]
+
+
+4. DEVELOPMENT PHASES BREAKDOWN
+--------------------------------------------------------------------------------
+PHASE 1: Repository & Workspace Baseline
+  - Sync git branch: git checkout -b feature/driver-support[cite: 4, 5].
+  - Pull shared core changes: git pull origin feature/municipal-operations[cite: 4].
+  - Add pubspec dependencies: cloud_firestore, firebase_storage, image_picker, 
+    google_maps_flutter / flutter_map, url_launcher, intl[cite: 3, 5].
+  - Verify emulator and target device connectivity via 'flutter devices'[cite: 4].
+
+PHASE 2: Backend, Schema & Storage Setup
+  - Initialize Firestore collections: 'missed_reports', 'special_pickups', 'driver_trips'.
+  - Write and test storage_service.dart using Firebase Storage emulator or live project[cite: 3].
+  - Implement models and Firestore services with complete serialization and error handling.
+
+PHASE 3: UI Construction & Service Binding
+  - Subphase 3A: Implement Dashboard (Screen 1) and Status Stepper (Screen 3)[cite: 5].
+  - Subphase 3B: Implement Missed Collection Report Form & Receipt (Screens 4 & 5)[cite: 5].
+    Bind ImagePicker and MissedReportService (CRUD 1)[cite: 3, 5].
+  - Subphase 3C: Implement 5-Step Special Waste Wizard (Screens 6 to 10)[cite: 5].
+    Bind category selectors, calendar, multi-image upload, and write to Firestore (CRUD 2)[cite: 3, 5].
+  - Subphase 3D: Implement Live Map screen (Screen 2), marker overlays, and tel: launcher[cite: 5].
+
+PHASE 4: Quality Assurance, Verification & Documentation
+  - Design functional test cases for all inputs, edge cases, and CRUD handlers[cite: 3].
+  - Build Traceability Matrix: Requirement -> High-Fidelity UI -> Code -> Test Case[cite: 3].
+  - Execute Usability Testing with >= 5 real/proxy users and record metrics (SUS score, 
+    task completion rates, usability issues, and recorded fixes)[cite: 3].
+  - Generate release build: 'flutter build apk --release'[cite: 3].
+  - Prepare consolidated Milestone 01-03 report (<= 35 pages) and viva slide deck[cite: 3].
+================================================================================
+
+```

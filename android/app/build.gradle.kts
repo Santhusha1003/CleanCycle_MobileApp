@@ -1,6 +1,8 @@
 plugins {
     id("com.android.application")
+    // START: FlutterFire Configuration
     id("com.google.gms.google-services")
+    // END: FlutterFire Configuration
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -8,7 +10,7 @@ plugins {
 android {
     namespace = "com.example.cleancycle_mobileapp"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // ndkVersion = flutter.ndkVersion
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true

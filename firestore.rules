@@ -60,5 +60,30 @@ service cloud.firestore {
       allow create, read: if request.auth != null;
     }
 
+    // Member 03 requests/reports belong to the authenticated submitting user.
+    // Preserve ownership when editing; never grant a public catch-all.
+    match /special_pickups/{requestId} {
+      allow create: if isOwner(request.resource.data.userId);
+      allow read, delete: if isOwner(resource.data.userId);
+      allow update: if isOwner(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId;
+    }
+
+    match /missed_reports/{reportId} {
+      allow create: if isOwner(request.resource.data.userId);
+      allow read, delete: if isOwner(resource.data.userId);
+      allow update: if isOwner(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId;
+    }
+
+    // TrackingService only reads these collections; client writes stay denied.
+    match /driver_trips/{driverId} {
+      allow read: if request.auth != null;
+    }
+
+    match /collection_schedules/{userId} {
+      allow read: if isOwner(userId);
+    }
+
   }
 }

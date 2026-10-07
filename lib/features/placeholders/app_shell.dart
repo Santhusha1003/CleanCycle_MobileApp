@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_roles.dart';
+import '../../navigation/app_routes.dart';
 import '../auth/presentation/auth_controller.dart';
 import '../profile/presentation/screens/account_settings_screen.dart';
 import 'home_resident_placeholder.dart';
@@ -27,7 +28,8 @@ class _AppShellState extends State<AppShell> {
           _HomeTab(),
           _MemberPlaceholder(
             title: 'Schedule',
-            message: 'Collection scheduling will be implemented by other members.',
+            message:
+                'Collection scheduling will be implemented by other members.',
           ),
           _MemberPlaceholder(
             title: 'Track',
@@ -38,7 +40,14 @@ class _AppShellState extends State<AppShell> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
-        onTap: (value) => setState(() => _index = value),
+        onTap: (value) {
+          if (value == 1 &&
+              context.read<AuthController>().profile?.isResident == true) {
+            Navigator.pushNamed(context, AppRoutes.collectionSchedule);
+            return;
+          }
+          setState(() => _index = value);
+        },
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
@@ -93,10 +102,12 @@ class _MemberPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: Center(child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(message, textAlign: TextAlign.center),
-      )),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(message, textAlign: TextAlign.center),
+        ),
+      ),
     );
   }
 }

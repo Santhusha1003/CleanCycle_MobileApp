@@ -9,6 +9,12 @@ import '../features/notifications/presentation/notification_settings_screen.dart
 import '../core/constants/app_roles.dart';
 import '../theme/app_theme.dart';
 import 'package:provider/provider.dart';
+import '../collection_schedule/screens/home_dashboard_screen.dart';
+import '../collection_schedule/screens/collection_schedule_screen.dart';
+import '../collection_schedule/screens/collection_history_screen.dart';
+import '../collection_schedule/screens/missed_collection_report_screen.dart';
+import '../collection_schedule/screens/recycling_tips_screen.dart';
+import '../collection_schedule/screens/recycling_centre_locator_screen.dart';
 import '../screens/resident_dashboard_screen.dart';
 import '../screens/schedule_management_screen.dart';
 import '../screens/splash_screen.dart';
@@ -58,22 +64,57 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (context) => const _AuthenticatedRoute(
             role: AppRoles.resident,
-            child: ResidentDashboardScreen(),
+            child: HomeDashboardScreen(),
           ),
           settings: settings,
         );
       case AppRoutes.collectionSchedule:
-      case AppRoutes.collectionDetails:
-      case AppRoutes.recycling:
+        return MaterialPageRoute(
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: CollectionScheduleScreen(),
+          ),
+          settings: settings,
+        );
       case AppRoutes.collectionHistory:
+        return MaterialPageRoute(
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: CollectionHistoryScreen(),
+          ),
+          settings: settings,
+        );
       case AppRoutes.missedCollection:
-      case AppRoutes.specialPickup:
+        return MaterialPageRoute(
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: MissedCollectionReportScreen(),
+          ),
+          settings: settings,
+        );
+      case AppRoutes.recycling:
+        return MaterialPageRoute(
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: RecyclingTipsScreen(),
+          ),
+          settings: settings,
+        );
       case AppRoutes.recyclingCentres:
         return MaterialPageRoute(
           builder: (context) => const _AuthenticatedRoute(
             role: AppRoles.resident,
+            child: RecyclingCentreLocatorScreen(),
+          ),
+          settings: settings,
+        );
+      case AppRoutes.collectionDetails:
+      case AppRoutes.specialPickup:
+        return MaterialPageRoute(
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
             child: ResidentDashboardScreen(),
-          ), // Placeholder
+          ),
           settings: settings,
         );
 

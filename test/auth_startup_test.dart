@@ -1,3 +1,6 @@
+import 'package:cleancycle_mobileapp/collection_schedule/screens/collection_schedule_screen.dart';
+import 'package:cleancycle_mobileapp/collection_schedule/screens/collection_history_screen.dart';
+import 'package:cleancycle_mobileapp/collection_schedule/screens/missed_collection_report_screen.dart';
 import 'package:cleancycle_mobileapp/core/constants/app_roles.dart';
 import 'package:cleancycle_mobileapp/features/auth/data/auth_repository.dart';
 import 'package:cleancycle_mobileapp/features/auth/data/email_otp.dart';
@@ -264,6 +267,70 @@ void main() {
       );
       expect(destinations.values, everyElement(isA<AuthGate>()));
     });
+  }
+
+  testWidgets('Resident routes expose the merged Member 02 screens', (
+    tester,
+  ) async {
+    final controller = await restored(
+      user: _User(),
+      verified: true,
+      role: AppRoles.resident,
+    );
+    final destinations = <String, Widget>{};
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: controller,
+        child: _RouteProbe(
+          routes: [
+            AppRoutes.collectionSchedule,
+            AppRoutes.collectionHistory,
+            AppRoutes.missedCollection,
+          ],
+          destinations: destinations,
+        ),
+      ),
+    );
+    expect(
+      destinations[AppRoutes.collectionSchedule],
+      isA<CollectionScheduleScreen>(),
+    );
+    expect(
+      destinations[AppRoutes.collectionHistory],
+      isA<CollectionHistoryScreen>(),
+    );
+    expect(
+      destinations[AppRoutes.missedCollection],
+      isA<MissedCollectionReportScreen>(),
+    );
+  });
+
+  for (final role in [null, AppRoles.driver, AppRoles.municipalOfficer]) {
+    testWidgets(
+      'Resident collection routes reject unauthorized $role sessions',
+      (tester) async {
+        final controller = await restored(
+          user: role == null ? null : _User(),
+          verified: true,
+          role: role ?? AppRoles.resident,
+        );
+        final destinations = <String, Widget>{};
+        await tester.pumpWidget(
+          ChangeNotifierProvider.value(
+            value: controller,
+            child: _RouteProbe(
+              routes: [
+                AppRoutes.collectionSchedule,
+                AppRoutes.collectionHistory,
+                AppRoutes.missedCollection,
+              ],
+              destinations: destinations,
+            ),
+          ),
+        );
+        expect(destinations.values, everyElement(isA<AuthGate>()));
+      },
+    );
   }
 
   testWidgets('Signed-out startup opens Login', (tester) async {

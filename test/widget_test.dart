@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cleancycle_mobileapp/main.dart';
-import 'package:cleancycle_mobileapp/screens/tracking_dashboard_screen.dart';
+import 'package:cleancycle_mobileapp/vishani/screens/tracking_dashboard_screen.dart';
 
 void main() {
   testWidgets('CleanCycle App smoke test renders MaterialApp', (WidgetTester tester) async {

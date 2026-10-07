@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cleancycle_mobileapp/models/missed_report_model.dart';
-import 'package:cleancycle_mobileapp/models/special_pickup_model.dart';
-import 'package:cleancycle_mobileapp/models/driver_tracking_model.dart';
+import 'package:cleancycle_mobileapp/vishani/models/missed_report_model.dart';
+import 'package:cleancycle_mobileapp/vishani/models/special_pickup_model.dart';
+import 'package:cleancycle_mobileapp/vishani/models/driver_tracking_model.dart';
 
 void main() {
   group('CleanCycle Model Unit Tests & Validation', () {

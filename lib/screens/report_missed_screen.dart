@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -15,13 +16,17 @@ class ReportMissedScreen extends StatefulWidget {
 
 class _ReportMissedScreenState extends State<ReportMissedScreen> {
   final _formKey = GlobalKey<FormState>();
-  final MissedReportService _reportService = MissedReportService();
   final ImagePicker _picker = ImagePicker();
 
   String _selectedCategory = 'Recyclable';
   DateTime _scheduledDate = DateTime.now().subtract(const Duration(days: 1));
+  
+  // Controllers
+  final TextEditingController _addressController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
+  
   File? _selectedImage;
+  Uint8List? _selectedImageBytes;
   bool _isSubmitting = false;
 
   final List<String> _categories = [
@@ -40,8 +45,10 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
         imageQuality: 85,
       );
       if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
         setState(() {
           _selectedImage = File(pickedFile.path);
+          _selectedImageBytes = bytes;
         });
       }
     } catch (e) {
@@ -77,23 +84,25 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
     }
   }
 
+  // Firebase Firestore වෙත සෘජුවම දත්ත Save කිරීම
   Future<void> _submitReport() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSubmitting = true);
 
     try {
-      final newReport = MissedReportModel(
+      final report = MissedReportModel(
         reportId: '',
-        userId: 'user_default',
+        userId: 'IT23844360',
         collectionType: _selectedCategory,
         scheduledDate: _scheduledDate,
         description: _descController.text.trim(),
+        address: _addressController.text.trim(),
         reportedOn: DateTime.now(),
         status: 'Reported',
       );
 
-      final reportId = await _reportService.createReport(newReport, _selectedImage);
+      final reportId = await MissedReportService().createReport(report, _selectedImage);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,6 +112,7 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
           ),
         );
 
+        // 2. අදාළ Report Detail Screen එක වෙත රැගෙන යාම
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -125,6 +135,7 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
 
   @override
   void dispose() {
+    _addressController.dispose();
     _descController.dispose();
     super.dispose();
   }
@@ -149,22 +160,39 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Notice Card
+              // Notice Card matching Screen 4
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3E0),
+                  color: const Color(0xFFFFEBEE),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFFB74D).withOpacity(0.5)),
+                  border: Border.all(color: const Color(0xFFFFCDD2)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, color: Color(0xFFE65100), size: 22),
-                    const SizedBox(width: 10),
+                    const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'Report collections missed during standard municipal collection rounds within 24 hours.',
-                        style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Did we miss your collection?',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFC62828),
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            "Let us know, and we'll take action as soon as possible.",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFB71C1C),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -233,9 +261,40 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
               ),
               const SizedBox(height: 18),
 
-              // 3. Problem Description
+              // 3. Location / Address Input
               const Text(
-                'Problem Description',
+                'Pickup Location / Address',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1B3B2B)),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _addressController,
+                decoration: InputDecoration(
+                  hintText: 'e.g., No. 42, Galle Road, Colombo 03',
+                  hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Please enter the pickup location address';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 18),
+
+              // 4. Problem Description
+              const Text(
+                'Describe the issue',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1B3B2B)),
               ),
               const SizedBox(height: 8),
@@ -243,7 +302,7 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
                 controller: _descController,
                 maxLines: 4,
                 decoration: InputDecoration(
-                  hintText: 'e.g., The collection vehicle passed by without emptying the bin left outside the gate.',
+                  hintText: "e.g., Bin not collected, team didn't arrive, etc.",
                   hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
                   filled: true,
                   fillColor: Colors.white,
@@ -260,27 +319,22 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
                   if (val == null || val.trim().isEmpty) {
                     return 'Please describe the missed collection issue';
                   }
-                  if (val.trim().length < 10) {
-                    return 'Description must be at least 10 characters';
+                  if (val.trim().length < 5) {
+                    return 'Description must be at least 5 characters';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 18),
 
-              // 4. Photo Picker (Optional)
-              const Text(
-                'Attach Photo (Optional)',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1B3B2B)),
-              ),
-              const SizedBox(height: 8),
-              _selectedImage != null
+              // 5. Photo Picker matching Screen 4
+              _selectedImageBytes != null
                   ? Stack(
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            _selectedImage!,
+                          child: Image.memory(
+                            _selectedImageBytes!,
                             height: 180,
                             width: double.infinity,
                             fit: BoxFit.cover,
@@ -294,7 +348,10 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
                             radius: 16,
                             child: IconButton(
                               icon: const Icon(Icons.close, size: 16, color: Colors.white),
-                              onPressed: () => setState(() => _selectedImage = null),
+                              onPressed: () => setState(() {
+                                _selectedImage = null;
+                                _selectedImageBytes = null;
+                              }),
                             ),
                           ),
                         ),
@@ -333,24 +390,27 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        height: 100,
+                        height: 54,
                         width: double.infinity,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: Colors.grey.shade300,
-                            style: BorderStyle.solid,
                           ),
                         ),
-                        child: Column(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add_a_photo_outlined, color: Colors.grey.shade500, size: 32),
-                            const SizedBox(height: 6),
+                            Icon(Icons.camera_alt_outlined, color: Colors.grey.shade600, size: 20),
+                            const SizedBox(width: 8),
                             Text(
-                              'Tap to upload bin photo',
-                              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                              'Add Photo (Optional)',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade700,
+                              ),
                             ),
                           ],
                         ),
@@ -358,7 +418,7 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
                     ),
               const SizedBox(height: 32),
 
-              // 5. Submit Button
+              // 6. Submit Button
               SizedBox(
                 width: double.infinity,
                 height: 52,

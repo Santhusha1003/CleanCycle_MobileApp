@@ -55,7 +55,7 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
       backgroundColor: const Color(0xFFF7FAF8),
       appBar: AppBar(
         title: const Text(
-          'Step 2: Select Date & Time',
+          'Select Date & Time',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         backgroundColor: const Color(0xFF1B5E20),
@@ -64,120 +64,19 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
       ),
       body: Column(
         children: [
-          // Step Progress Bar (Step 2 of 3)
-          LinearProgressIndicator(
-            value: 0.66,
-            backgroundColor: Colors.grey.shade200,
-            color: const Color(0xFF2E7D32),
-            minHeight: 4,
-          ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Selected Category Pill
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8F5E9),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.check_circle, color: Color(0xFF2E7D32), size: 16),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Category: ${widget.selectedWasteType}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2E7D32),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // Inline Calendar Widget matching Screen 8
+                  _buildInlineCalendar(),
                   const SizedBox(height: 20),
 
-                  // 1. Calendar Date Picker
+                  // 2. Time Slot Selection matching Screen 8
                   const Text(
-                    'Select Pickup Date',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1B3B2B),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  InkWell(
-                    onTap: _selectCustomDate,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade300),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE8F5E9),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(
-                                  Icons.calendar_month,
-                                  color: Color(0xFF2E7D32),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    DateFormat('EEEE').format(_selectedDate),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade500,
-                                    ),
-                                  ),
-                                  Text(
-                                    DateFormat('MMMM d, yyyy').format(_selectedDate),
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1B3B2B),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // 2. Operational Time Slot Selection
-                  const Text(
-                    'Select Operational Time Window',
+                    'Select Time Slot',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -196,20 +95,20 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
 
                       return InkWell(
                         onTap: () => setState(() => _selectedSlot = slot),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
-                            vertical: 14,
+                            vertical: 12,
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isSelected
                                   ? const Color(0xFF2E7D32)
-                                  : Colors.grey.shade300,
-                              width: isSelected ? 2 : 1,
+                                  : Colors.grey.shade200,
+                              width: isSelected ? 1.5 : 1,
                             ),
                           ),
                           child: Row(
@@ -217,35 +116,27 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                             children: [
                               Row(
                                 children: [
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 20,
-                                    color: isSelected
-                                        ? const Color(0xFF2E7D32)
-                                        : Colors.grey.shade500,
+                                  Radio<String>(
+                                    value: slot,
+                                    groupValue: _selectedSlot,
+                                    activeColor: const Color(0xFF2E7D32),
+                                    onChanged: (val) {
+                                      if (val != null) setState(() => _selectedSlot = val);
+                                    },
                                   ),
-                                  const SizedBox(width: 12),
                                   Text(
                                     slot,
                                     style: TextStyle(
-                                      fontSize: 15,
+                                      fontSize: 14,
                                       fontWeight: isSelected
                                           ? FontWeight.bold
-                                          : FontWeight.normal,
+                                          : FontWeight.w500,
                                       color: isSelected
                                           ? const Color(0xFF1B5E20)
                                           : const Color(0xFF1B3B2B),
                                     ),
                                   ),
                                 ],
-                              ),
-                              Radio<String>(
-                                value: slot,
-                                groupValue: _selectedSlot,
-                                activeColor: const Color(0xFF2E7D32),
-                                onChanged: (val) {
-                                  if (val != null) setState(() => _selectedSlot = val);
-                                },
                               ),
                             ],
                           ),
@@ -257,22 +148,16 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
               ),
             ),
           ),
-          // Continue Button
+          // Next Button matching Screen 8
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -4),
-                ),
-              ],
+              border: Border(top: BorderSide(color: Colors.grey.shade200)),
             ),
             child: SizedBox(
               width: double.infinity,
-              height: 52,
+              height: 50,
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.push(
@@ -287,13 +172,14 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1B5E20),
+                  backgroundColor: const Color(0xFF2E7D32),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  elevation: 0,
                 ),
                 child: const Text(
-                  'Continue to Details & Photos',
+                  'Next',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -302,6 +188,116 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlineCalendar() {
+    final firstDayOfMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
+    final daysInMonth = DateTime(_selectedDate.year, _selectedDate.month + 1, 0).day;
+    final startWeekday = firstDayOfMonth.weekday % 7;
+    final weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, size: 20),
+                onPressed: () {
+                  setState(() {
+                    _selectedDate = DateTime(_selectedDate.year, _selectedDate.month - 1, _selectedDate.day.clamp(1, 28));
+                  });
+                },
+              ),
+              InkWell(
+                onTap: _selectCustomDate,
+                child: Text(
+                  DateFormat('MMMM yyyy').format(_selectedDate),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1B3B2B),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, size: 20),
+                onPressed: () {
+                  setState(() {
+                    _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + 1, _selectedDate.day.clamp(1, 28));
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: weekdays.map((d) => SizedBox(
+              width: 36,
+              child: Text(
+                d,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+              ),
+            )).toList(),
+          ),
+          const SizedBox(height: 8),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+            ),
+            itemCount: startWeekday + daysInMonth,
+            itemBuilder: (context, index) {
+              if (index < startWeekday) {
+                return const SizedBox.shrink();
+              }
+              final dayNum = index - startWeekday + 1;
+              final isSelected = _selectedDate.day == dayNum;
+
+              return InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedDate = DateTime(_selectedDate.year, _selectedDate.month, dayNum);
+                  });
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Center(
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFF2E7D32) : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$dayNum',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected ? Colors.white : const Color(0xFF1B3B2B),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

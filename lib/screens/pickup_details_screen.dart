@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -30,6 +31,7 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
   String _address = 'No. 42, Galle Road, Colombo 03';
   final TextEditingController _notesController = TextEditingController();
   final List<File> _selectedPhotos = [];
+  final List<Uint8List> _selectedPhotosBytes = [];
   bool _isSubmitting = false;
 
   Future<void> _pickPhoto(ImageSource source) async {
@@ -41,8 +43,10 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
         imageQuality: 85,
       );
       if (picked != null) {
+        final bytes = await picked.readAsBytes();
         setState(() {
           _selectedPhotos.add(File(picked.path));
+          _selectedPhotosBytes.add(bytes);
         });
       }
     } catch (e) {
@@ -144,7 +148,7 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
       backgroundColor: const Color(0xFFF7FAF8),
       appBar: AppBar(
         title: const Text(
-          'Step 3: Details & Photos',
+          'Pickup Details',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         backgroundColor: const Color(0xFF1B5E20),
@@ -153,12 +157,6 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
       ),
       body: Column(
         children: [
-          LinearProgressIndicator(
-            value: 1.0,
-            backgroundColor: Colors.grey.shade200,
-            color: const Color(0xFF2E7D32),
-            minHeight: 4,
-          ),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -260,7 +258,7 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
 
                     // 2. Specific Instructions / Gate Access Notes
                     const Text(
-                      'Item Instructions & Gate Access Notes',
+                      'Additional Details',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -272,7 +270,7 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
                       controller: _notesController,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: 'e.g., Heavy items placed near the garage entrance. Ring bell upon arrival.',
+                        hintText: 'e.g., item size, quantity, pickup location details (Landmark, gate, etc.)',
                         hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
                         filled: true,
                         fillColor: Colors.white,
@@ -294,113 +292,118 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // 3. Multi-Photo Upload Grid
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Upload Item Photos',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1B3B2B),
-                          ),
-                        ),
-                        Text(
-                          '${_selectedPhotos.length} Added',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                        ),
-                      ],
+                    // 3. Multi-Photo Upload Grid matching Screen 9
+                    const Text(
+                      'Add Photos',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1B3B2B),
+                      ),
                     ),
                     const SizedBox(height: 10),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                        childAspectRatio: 1.0,
-                      ),
-                      itemCount: _selectedPhotos.length + 1,
-                      itemBuilder: (context, index) {
-                        // [+] Trigger Button
-                        if (index == _selectedPhotos.length) {
-                          return InkWell(
-                            onTap: () {
-                              showModalBottomSheet(
-                                context: context,
-                                builder: (ctx) => SafeArea(
-                                  child: Wrap(
-                                    children: [
-                                      ListTile(
-                                        leading: const Icon(Icons.camera_alt, color: Color(0xFF2E7D32)),
-                                        title: const Text('Take Photo with Camera'),
-                                        onTap: () {
-                                          Navigator.pop(ctx);
-                                          _pickPhoto(ImageSource.camera);
-                                        },
-                                      ),
-                                      ListTile(
-                                        leading: const Icon(Icons.photo_library, color: Color(0xFF2E7D32)),
-                                        title: const Text('Pick from Gallery'),
-                                        onTap: () {
-                                          Navigator.pop(ctx);
-                                          _pickPhoto(ImageSource.gallery);
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
+                    Row(
+                      children: [
+                        // Sample preview if no user photo picked yet, or display picked
+                        if (_selectedPhotosBytes.isEmpty) ...[
+                          ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                            child: Image.asset(
+                              'assets/images/furniture_sofa.jpg',
+                              height: 80,
+                              width: 80,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                        ] else ...[
+                          ...List.generate(_selectedPhotosBytes.length, (idx) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: Stack(
                                 children: [
-                                  Icon(Icons.add_a_photo, color: Colors.grey.shade500, size: 28),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Add Photo',
-                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.memory(
+                                      _selectedPhotosBytes[idx],
+                                      height: 80,
+                                      width: 80,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 2,
+                                    right: 2,
+                                    child: InkWell(
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedPhotos.removeAt(idx);
+                                          _selectedPhotosBytes.removeAt(idx);
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
-                          );
-                        }
+                            );
+                          }),
+                        ],
 
-                        // Photo Thumbnails
-                        final photo = _selectedPhotos[index];
-                        return Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.file(photo, fit: BoxFit.cover),
-                            ),
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: GestureDetector(
-                                onTap: () => setState(() => _selectedPhotos.removeAt(index)),
-                                child: const CircleAvatar(
-                                  radius: 12,
-                                  backgroundColor: Colors.black54,
-                                  child: Icon(Icons.close, size: 14, color: Colors.white),
+                        // [+] Trigger Button
+                        InkWell(
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              builder: (ctx) => SafeArea(
+                                child: Wrap(
+                                  children: [
+                                    ListTile(
+                                      leading: const Icon(Icons.camera_alt, color: Color(0xFF2E7D32)),
+                                      title: const Text('Take Photo with Camera'),
+                                      onTap: () {
+                                        Navigator.pop(ctx);
+                                        _pickPhoto(ImageSource.camera);
+                                      },
+                                    ),
+                                    ListTile(
+                                      leading: const Icon(Icons.photo_library, color: Color(0xFF2E7D32)),
+                                      title: const Text('Pick from Gallery'),
+                                      onTap: () {
+                                        Navigator.pop(ctx);
+                                        _pickPhoto(ImageSource.gallery);
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            height: 80,
+                            width: 80,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
                             ),
-                          ],
-                        );
-                      },
+                            child: const Center(
+                              child: Icon(Icons.add, color: Colors.grey, size: 30),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+
+
                   ],
                 ),
               ),
@@ -414,7 +417,7 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -4),
                 ),

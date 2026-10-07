@@ -38,13 +38,28 @@ void main() {
       expect(fetchedReport?.collectionType, 'Recyclable');
       expect(fetchedReport?.description, 'Test missed bin report for automated unit test.');
 
-      // 3. UPDATE (Description)
+      // 3. UPDATE (Description - backward-compatible method)
       await missedReportService.updateReportDescription(
         reportId,
         'Updated description for testing.',
       );
       final updatedReport = await missedReportService.getReportStream(reportId).first;
       expect(updatedReport?.description, 'Updated description for testing.');
+
+      // 3b. UPDATE (All relevant fields: collectionType, scheduledDate, address, description)
+      final newScheduledDate = DateTime.now().subtract(const Duration(days: 2));
+      await missedReportService.updateReportDetails(
+        reportId,
+        collectionType: 'Organic',
+        scheduledDate: newScheduledDate,
+        address: 'No. 42, Galle Road, Colombo 03',
+        description: 'Organic compost bin was missed.',
+      );
+      final fullyUpdatedReport = await missedReportService.getReportStream(reportId).first;
+      expect(fullyUpdatedReport?.collectionType, 'Organic');
+      expect(fullyUpdatedReport?.scheduledDate, newScheduledDate);
+      expect(fullyUpdatedReport?.address, 'No. 42, Galle Road, Colombo 03');
+      expect(fullyUpdatedReport?.description, 'Organic compost bin was missed.');
 
       // 4. DELETE (Cancel / Withdraw)
       await missedReportService.cancelReport(reportId);

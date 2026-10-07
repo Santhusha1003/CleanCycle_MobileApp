@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local Admin Web build and dependency artifacts
+/admin_web/node_modules/
+/admin_web/dist/

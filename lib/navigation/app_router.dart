@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../screens/driver_dashboard_screen.dart';
-import '../screens/login_screen.dart';
+import '../features/auth/presentation/screens/auth_gate.dart';
+import '../features/auth/presentation/screens/create_account_screen.dart';
+import '../features/auth/presentation/auth_controller.dart';
+import '../features/profile/presentation/screens/account_settings_screen.dart';
+import '../features/notifications/presentation/notification_settings_screen.dart';
+import '../core/constants/app_roles.dart';
+import '../theme/app_theme.dart';
+import 'package:provider/provider.dart';
 import '../screens/resident_dashboard_screen.dart';
 import '../screens/schedule_management_screen.dart';
 import '../screens/splash_screen.dart';
@@ -12,11 +19,11 @@ import 'municipal_shell.dart';
 ///
 /// This class manages navigation and route building for the app.
 /// It provides a consistent interface for navigation across the application
-/// and supports role-based route restrictions via NavigationGuard.
+/// and supports role restrictions using the authenticated AppUser profile.
 ///
 /// Currently uses Flutter's standard Navigator with MaterialApp.
-/// Route building is role-aware: screens are built based on the route name.
-/// Access control is enforced by NavigationGuard in onGenerateRoute.
+/// Named routes use the integrated AuthController role. These UI guards do
+/// not replace server-side Firestore authorization.
 class AppRouter {
   AppRouter._();
 
@@ -37,19 +44,22 @@ class AppRouter {
         );
       case AppRoutes.login:
         return MaterialPageRoute(
-          builder: (context) => const LoginScreen(),
+          builder: (context) => const AuthGate(),
           settings: settings,
         );
       case AppRoutes.register:
         return MaterialPageRoute(
-          builder: (context) => const LoginScreen(), // Placeholder
+          builder: (context) => const CreateAccountScreen(),
           settings: settings,
         );
 
       // Resident routes
       case AppRoutes.residentDashboard:
         return MaterialPageRoute(
-          builder: (context) => const ResidentDashboardScreen(),
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: ResidentDashboardScreen(),
+          ),
           settings: settings,
         );
       case AppRoutes.collectionSchedule:
@@ -60,14 +70,20 @@ class AppRouter {
       case AppRoutes.specialPickup:
       case AppRoutes.recyclingCentres:
         return MaterialPageRoute(
-          builder: (context) => const ResidentDashboardScreen(), // Placeholder
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: ResidentDashboardScreen(),
+          ), // Placeholder
           settings: settings,
         );
 
       // Driver routes
       case AppRoutes.driverDashboard:
         return MaterialPageRoute(
-          builder: (context) => const DriverDashboardScreen(),
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.driver,
+            child: DriverDashboardScreen(),
+          ),
           settings: settings,
         );
       case AppRoutes.assignedRoutes:
@@ -75,7 +91,10 @@ class AppRouter {
       case AppRoutes.collectionStatus:
       case AppRoutes.collectionIssue:
         return MaterialPageRoute(
-          builder: (context) => const DriverDashboardScreen(), // Placeholder
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.driver,
+            child: DriverDashboardScreen(),
+          ), // Placeholder
           settings: settings,
         );
 
@@ -86,22 +105,40 @@ class AppRouter {
       case AppRoutes.staffManagement:
       case AppRoutes.reportsAnalytics:
         return MaterialPageRoute(
-          builder: (context) => MunicipalShell(initialRoute: settings.name!),
+          builder: (context) => _AuthenticatedRoute(
+            role: AppRoles.municipalOfficer,
+            child: Theme(
+              data: AppTheme.lightTheme,
+              child: MunicipalShell(initialRoute: settings.name!),
+            ),
+          ),
           settings: settings,
         );
       case AppRoutes.scheduleManagement:
         return MaterialPageRoute(
-          builder: (context) => const ScheduleManagementScreen(),
+          builder: (context) => _AuthenticatedRoute(
+            role: AppRoles.municipalOfficer,
+            child: Theme(
+              data: AppTheme.lightTheme,
+              child: const ScheduleManagementScreen(),
+            ),
+          ),
           settings: settings,
         );
 
-      // Common authenticated routes
+      // Existing Member 01 profile and notification settings.
       case AppRoutes.profile:
       case AppRoutes.settings:
-      case AppRoutes.notifications:
       case AppRoutes.driverProfile:
         return MaterialPageRoute(
-          builder: (context) => const LoginScreen(), // Placeholder
+          builder: (context) =>
+              const _AuthenticatedRoute(child: AccountSettingsScreen()),
+          settings: settings,
+        );
+      case AppRoutes.notifications:
+        return MaterialPageRoute(
+          builder: (context) =>
+              const _AuthenticatedRoute(child: NotificationSettingsScreen()),
           settings: settings,
         );
 
@@ -167,6 +204,27 @@ class AppRouter {
   /// Usage: AppRouter.popUntil(context, (route) => route.isFirst)
   static void popUntil(BuildContext context, RoutePredicate predicate) {
     Navigator.popUntil(context, predicate);
+  }
+}
+
+/// Reject stale routes after logout or a role change. Firestore rules remain
+/// responsible for data authorization; a UI guard grants no permissions.
+class _AuthenticatedRoute extends StatelessWidget {
+  const _AuthenticatedRoute({required this.child, this.role});
+  final Widget child;
+  final String? role;
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthController>();
+    final allowed =
+        auth.status == AuthStatus.authenticated &&
+        auth.firebaseUser != null &&
+        !auth.firebaseUser!.isAnonymous &&
+        !auth.needsEmailVerification &&
+        auth.profile != null &&
+        (role == null || auth.profile!.role == role);
+    return allowed ? child : const AuthGate();
   }
 }
 

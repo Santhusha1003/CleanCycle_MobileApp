@@ -111,7 +111,8 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
             ),
           ),
           // Profile (right)
-          _IconBtn(icon: Icons.account_circle_outlined, onTap: () {}),
+          _IconBtn(icon: Icons.account_circle_outlined,
+            onTap: () => Navigator.pushNamed(context, AppRoutes.profile)),
         ],
       ),
     );

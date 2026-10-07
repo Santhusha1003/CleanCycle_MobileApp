@@ -1,9 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
-import '../../models/collection_schedule.dart';
-import '../../models/driver.dart';
-import '../../models/staff.dart';
-import '../../models/vehicle.dart';
 import '../firebase/firebase_service.dart';
 import '../firebase/firestore_service.dart';
 
@@ -79,42 +76,41 @@ class MunicipalAnalyticsService {
         _firestoreService.getCollection(path: scheduleCollectionPath),
       ]);
 
-      final vehicles = results[0]
-          .map((data) => Vehicle.fromMap(data))
-          .toList(growable: false);
-      final drivers = results[1]
-          .map((data) => Driver.fromMap(data))
-          .toList(growable: false);
-      final staffMembers = results[2]
-          .map((data) => Staff.fromMap(data))
-          .toList(growable: false);
-      final schedules = results[3]
-          .map((data) => CollectionSchedule.fromMap(data))
-          .toList(growable: false);
+      // Analytics needs only status/date/grouping fields, not complete CRUD
+      // models. Legacy records and pending audit timestamps remain countable.
+      final vehicles = results[0];
+      final drivers = results[1];
+      final staffMembers = results[2];
+      final schedules = results[3];
 
       final totalVehicles = vehicles.length;
       final availableVehicles = vehicles
           .where(
-            (vehicle) => vehicle.status.trim().toLowerCase() == 'available',
+            (vehicle) => _text(vehicle['status']).toLowerCase() == 'available',
           )
           .length;
       final maintenanceVehicles = vehicles
           .where(
-            (vehicle) => vehicle.status.trim().toLowerCase() == 'maintenance',
+            (vehicle) =>
+                _text(vehicle['status']).toLowerCase() == 'maintenance',
           )
           .length;
 
       final totalDrivers = drivers.length;
       final availableDrivers = drivers
-          .where((driver) => driver.status.trim().toLowerCase() == 'available')
+          .where(
+            (driver) => _text(driver['status']).toLowerCase() == 'available',
+          )
           .length;
       final assignedDrivers = drivers
-          .where((driver) => driver.status.trim().toLowerCase() == 'assigned')
+          .where(
+            (driver) => _text(driver['status']).toLowerCase() == 'assigned',
+          )
           .length;
 
       final totalStaff = staffMembers.length;
       final activeStaff = staffMembers
-          .where((member) => member.status.trim().toLowerCase() == 'active')
+          .where((member) => _text(member['status']).toLowerCase() == 'active')
           .length;
 
       final now = DateTime.now();
@@ -123,7 +119,16 @@ class MunicipalAnalyticsService {
 
       final todaysSchedules = schedules
           .where((schedule) {
-            final collectionDate = schedule.collectionDate;
+            final collectionDate = _collectionDate(schedule['collectionDate']);
+            if (collectionDate == null) {
+              if (kDebugMode) {
+                debugPrint(
+                  'MunicipalAnalyticsService: excluding schedule with '
+                  'missing/invalid collectionDate from today statistics.',
+                );
+              }
+              return false;
+            }
             return !collectionDate.isBefore(todayStart) &&
                 collectionDate.isBefore(tomorrowStart);
           })
@@ -132,28 +137,32 @@ class MunicipalAnalyticsService {
       final todayCollections = todaysSchedules.length;
       final completedToday = todaysSchedules
           .where(
-            (schedule) => schedule.status.trim().toLowerCase() == 'completed',
+            (schedule) =>
+                _text(schedule['status']).toLowerCase() == 'completed',
           )
           .length;
       final scheduledToday = todaysSchedules
           .where(
-            (schedule) => schedule.status.trim().toLowerCase() == 'scheduled',
+            (schedule) =>
+                _text(schedule['status']).toLowerCase() == 'scheduled',
           )
           .length;
       final inProgressToday = todaysSchedules
           .where(
-            (schedule) => schedule.status.trim().toLowerCase() == 'in_progress',
+            (schedule) =>
+                _text(schedule['status']).toLowerCase() == 'in_progress',
           )
           .length;
       final cancelledToday = todaysSchedules
           .where(
-            (schedule) => schedule.status.trim().toLowerCase() == 'cancelled',
+            (schedule) =>
+                _text(schedule['status']).toLowerCase() == 'cancelled',
           )
           .length;
 
       final collectionsByWasteType = _emptyWasteTypeCounts();
       for (final schedule in todaysSchedules) {
-        final normalizedWasteType = schedule.wasteType.trim().toLowerCase();
+        final normalizedWasteType = _text(schedule['wasteType']).toLowerCase();
         if (collectionsByWasteType.containsKey(normalizedWasteType)) {
           collectionsByWasteType[normalizedWasteType] =
               (collectionsByWasteType[normalizedWasteType] ?? 0) + 1;
@@ -162,7 +171,7 @@ class MunicipalAnalyticsService {
 
       final collectionsByZone = <String, int>{};
       for (final schedule in todaysSchedules) {
-        final zoneKey = schedule.zone.trim();
+        final zoneKey = _text(schedule['zone']);
         if (zoneKey.isEmpty) {
           continue;
         }
@@ -186,22 +195,29 @@ class MunicipalAnalyticsService {
         collectionsByWasteType: collectionsByWasteType,
         collectionsByZone: collectionsByZone,
       );
-    } on FirebaseException catch (exception) {
-      throw FirebaseServiceException.fromFirebaseException(exception);
-    } on FormatException catch (exception) {
-      throw FirebaseServiceException(
-        code: 'format_exception',
-        message: exception.message,
-      );
-    } catch (exception) {
-      if (exception is FirebaseServiceException) {
-        rethrow;
+    } catch (exception, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('MunicipalAnalyticsService: $exception\n$stackTrace');
+      }
+      if (exception is FirebaseServiceException) rethrow;
+      if (exception is FirebaseException) {
+        throw FirebaseServiceException.fromFirebaseException(exception);
       }
       throw FirebaseServiceException(
         code: 'municipal_analytics_error',
         message: 'Failed to calculate municipal analytics: $exception',
       );
     }
+  }
+
+  String _text(dynamic value) => value is String ? value.trim() : '';
+
+  DateTime? _collectionDate(dynamic value) {
+    if (value is Timestamp) return value.toDate().toLocal();
+    if (value is DateTime) return value.toLocal();
+    // Existing schedules also store ISO dates; do not fabricate missing dates.
+    if (value is String) return DateTime.tryParse(value)?.toLocal();
+    return null;
   }
 
   Future<int> getTotalVehicles() async {

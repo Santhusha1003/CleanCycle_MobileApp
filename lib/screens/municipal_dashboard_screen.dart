@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../navigation/app_routes.dart';
+import '../navigation/municipal_shell.dart';
 import '../services/municipal/municipal_analytics_service.dart';
 import '../theme/app_colors.dart';
 
@@ -22,9 +23,6 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
   final MunicipalAnalyticsService _analyticsService =
       MunicipalAnalyticsService();
 
-  // Bottom-nav index — always 0 (Dashboard) on this screen
-  int _navIndex = 0;
-
   bool _isLoading = true;
   String? _errorMessage;
   MunicipalAnalyticsSummary? _summary;
@@ -42,36 +40,16 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
     });
     try {
       final summary = await _analyticsService.getMunicipalAnalyticsSummary();
+      if (!mounted) return;
       setState(() {
         _summary = summary;
         _isLoading = false;
       });
     } on Exception catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = _safeMessage(e);
         _isLoading = false;
-      });
-    }
-  }
-
-  // ── Bottom-nav tap ────────────────────────────────────────────────────────
-  void _onNavTap(int index) {
-    if (index == _navIndex) return;
-    setState(() => _navIndex = index);
-
-    const routes = [
-      null, // 0 = Dashboard (already here)
-      AppRoutes.vehicleManagement, // 1
-      AppRoutes.driverManagement, // 2
-      AppRoutes.staffManagement, // 3
-      AppRoutes.reportsAnalytics, // 4
-    ];
-
-    final route = routes[index];
-    if (route != null) {
-      Navigator.pushNamed(context, route).then((_) {
-        // Reset active index when returning
-        if (mounted) setState(() => _navIndex = 0);
       });
     }
   }
@@ -81,8 +59,6 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      // ── Bottom navigation bar ────────────────────────────────────────────
-      bottomNavigationBar: _BottomNav(activeIndex: _navIndex, onTap: _onNavTap),
       body: SafeArea(
         child: Column(
           children: [
@@ -336,7 +312,7 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
       children: actions.map((a) {
         return _QuickActionCard(
           item: a,
-          onTap: () => Navigator.pushNamed(context, a.route),
+          onTap: () => MunicipalShell.navigate(context, a.route),
         );
       }).toList(),
     );
@@ -788,96 +764,4 @@ class _IconBtn extends StatelessWidget {
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Bottom navigation bar
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.activeIndex, required this.onTap});
-
-  final int activeIndex;
-  final ValueChanged<int> onTap;
-
-  static const _items = [
-    _NavItem(label: 'Dashboard', icon: Icons.dashboard_outlined),
-    _NavItem(label: 'Vehicles', icon: Icons.local_shipping_outlined),
-    _NavItem(label: 'Drivers', icon: Icons.drive_eta_outlined),
-    _NavItem(label: 'Staff', icon: Icons.people_alt_outlined),
-    _NavItem(label: 'Reports', icon: Icons.bar_chart_rounded),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_items.length, (i) {
-              final active = i == activeIndex;
-              return GestureDetector(
-                onTap: () => onTap(i),
-                behavior: HitTestBehavior.opaque,
-                child: SizedBox(
-                  width: 60,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _items[i].icon,
-                        size: 22,
-                        color: active
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _items[i].label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: active
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: active
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      // Active indicator dot
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: active ? 18 : 0,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem {
-  const _NavItem({required this.label, required this.icon});
-
-  final String label;
-  final IconData icon;
 }

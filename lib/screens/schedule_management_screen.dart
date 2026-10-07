@@ -205,6 +205,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                           _SectionLabel(label: 'Collection Date'),
                           const SizedBox(height: 6),
                           AppSecondaryButton(
+                            compact: true,
                             label: 'Date: ${_formatDate(selectedDate)}',
                             onPressed: () async {
                               final picked = await showDatePicker(
@@ -230,6 +231,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                     _SectionLabel(label: 'Start Time'),
                                     const SizedBox(height: 6),
                                     AppSecondaryButton(
+                                      compact: true,
                                       label: _formatTime(selectedStartTime),
                                       onPressed: () async {
                                         final picked = await showTimePicker(
@@ -263,6 +265,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                     _SectionLabel(label: 'End Time'),
                                     const SizedBox(height: 6),
                                     AppSecondaryButton(
+                                      compact: true,
                                       label: _formatTime(selectedEndTime),
                                       onPressed: () async {
                                         final picked = await showTimePicker(
@@ -376,6 +379,8 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
 
                           // ── Submit ────────────────────────────────────────
                           AppPrimaryButton(
+                            compact: true,
+                            icon: Icons.check,
                             label: isEditing
                                 ? 'Update Schedule'
                                 : 'Save Schedule',
@@ -573,18 +578,14 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
               ),
             ),
           ),
-          TextButton(
+          AppSecondaryButton(
+            label: 'Edit',
+            compact: true,
+            icon: Icons.edit_outlined,
             onPressed: () {
               Navigator.pop(dialogContext);
               _showScheduleForm(schedule: schedule);
             },
-            child: const Text(
-              'Edit',
-              style: TextStyle(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
         ],
       ),
@@ -629,14 +630,17 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
           'This action cannot be undone.',
         ),
         actions: [
-          TextButton(
+          AppSecondaryButton(
+            label: 'Cancel',
+            compact: true,
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          AppSecondaryButton(
+            label: 'Delete',
+            compact: true,
+            destructive: true,
+            icon: Icons.delete_outline,
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -719,9 +723,14 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
               const SizedBox(height: 16),
 
               // ── Add button ────────────────────────────────────────────
-              AppPrimaryButton(
-                label: 'Add Schedule',
-                onPressed: () => _showScheduleForm(),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: AppPrimaryButton(
+                  label: 'Add Schedule',
+                  compact: true,
+                  icon: Icons.add,
+                  onPressed: () => _showScheduleForm(),
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -969,6 +978,7 @@ class _ScheduleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      color: AppColors.greenSurface,
       padding: const EdgeInsets.all(16),
       onTap: onView,
       child: Column(
@@ -1051,19 +1061,31 @@ class _ScheduleCard extends StatelessWidget {
             const SizedBox(height: 6),
             _detailRow(Icons.notes_outlined, schedule.notes!),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // ── Actions ──────────────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: AppSecondaryButton(label: 'Edit', onPressed: onEdit),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AppSecondaryButton(label: 'Delete', onPressed: onDelete),
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                AppSecondaryButton(
+                  label: 'Edit',
+                  compact: true,
+                  icon: Icons.edit_outlined,
+                  onPressed: onEdit,
+                ),
+                AppSecondaryButton(
+                  label: 'Delete',
+                  compact: true,
+                  icon: Icons.delete_outline,
+                  destructive: true,
+                  onPressed: onDelete,
+                ),
+              ],
+            ),
           ),
         ],
       ),

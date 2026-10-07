@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../screens/driver_management_screen.dart';
 import '../screens/driver_dashboard_screen.dart';
 import '../screens/login_screen.dart';
-import '../screens/municipal_dashboard_screen.dart';
-import '../screens/reports_analytics_screen.dart';
 import '../screens/resident_dashboard_screen.dart';
 import '../screens/schedule_management_screen.dart';
 import '../screens/splash_screen.dart';
-import '../screens/staff_management_screen.dart';
-import '../screens/vehicle_management_screen.dart';
 import 'app_routes.dart';
+import 'municipal_shell.dart';
 
 /// Centralized router configuration for the CleanCycle application.
 ///
@@ -85,33 +81,17 @@ class AppRouter {
 
       // Municipal Officer routes
       case AppRoutes.municipalDashboard:
-        return MaterialPageRoute(
-          builder: (context) => const MunicipalDashboardScreen(),
-          settings: settings,
-        );
       case AppRoutes.vehicleManagement:
-        return MaterialPageRoute(
-          builder: (context) => const VehicleManagementScreen(),
-          settings: settings,
-        );
       case AppRoutes.driverManagement:
-        return MaterialPageRoute(
-          builder: (context) => const DriverManagementScreen(),
-          settings: settings,
-        );
       case AppRoutes.staffManagement:
+      case AppRoutes.reportsAnalytics:
         return MaterialPageRoute(
-          builder: (context) => const StaffManagementScreen(),
+          builder: (context) => MunicipalShell(initialRoute: settings.name!),
           settings: settings,
         );
       case AppRoutes.scheduleManagement:
         return MaterialPageRoute(
           builder: (context) => const ScheduleManagementScreen(),
-          settings: settings,
-        );
-      case AppRoutes.reportsAnalytics:
-        return MaterialPageRoute(
-          builder: (context) => const ReportsAnalyticsScreen(),
           settings: settings,
         );
 

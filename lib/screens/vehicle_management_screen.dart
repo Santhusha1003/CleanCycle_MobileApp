@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../navigation/municipal_shell.dart';
+
 import '../models/vehicle.dart';
 import '../services/municipal/vehicle_service.dart';
 import '../theme/app_colors.dart';
@@ -298,6 +300,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                             children: [
                               Expanded(
                                 child: AppSecondaryButton(
+                                  compact: true,
                                   label: lastServiceDate == null
                                       ? 'Last Service Date'
                                       : 'Last: ${_formatDate(lastServiceDate!)}',
@@ -320,6 +323,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: AppSecondaryButton(
+                                  compact: true,
                                   label: nextServiceDate == null
                                       ? 'Next Service Date'
                                       : 'Next: ${_formatDate(nextServiceDate!)}',
@@ -343,6 +347,8 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                           ),
                           const SizedBox(height: 20),
                           AppPrimaryButton(
+                            compact: true,
+                            icon: Icons.check,
                             label: isEditing
                                 ? 'Update Vehicle'
                                 : 'Save Vehicle',
@@ -456,14 +462,17 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
           'Are you sure you want to delete vehicle ${vehicle.registrationNumber}?',
         ),
         actions: [
-          TextButton(
+          AppSecondaryButton(
+            label: 'Cancel',
+            compact: true,
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          AppSecondaryButton(
+            label: 'Delete',
+            compact: true,
+            destructive: true,
+            icon: Icons.delete_outline,
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -509,6 +518,9 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: BackButton(
+          onPressed: () => MunicipalShell.backToDashboard(context),
+        ),
         backgroundColor: AppColors.background,
         elevation: 0,
         title: const Text(
@@ -550,15 +562,14 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                 onChanged: _onSearchChanged,
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppPrimaryButton(
-                      label: 'Add Vehicle',
-                      onPressed: () => _showVehicleForm(),
-                    ),
-                  ),
-                ],
+              Align(
+                alignment: Alignment.centerLeft,
+                child: AppPrimaryButton(
+                  label: 'Add Vehicle',
+                  compact: true,
+                  icon: Icons.add,
+                  onPressed: () => _showVehicleForm(),
+                ),
               ),
               const SizedBox(height: 20),
               if (_isLoading)
@@ -648,6 +659,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                     itemBuilder: (context, index) {
                       final vehicle = _filteredVehicles[index];
                       return AppCard(
+                        color: AppColors.greenSurface,
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -701,24 +713,30 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                                   ),
                               ],
                             ),
-                            const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: AppSecondaryButton(
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Wrap(
+                                alignment: WrapAlignment.end,
+                                spacing: 12,
+                                runSpacing: 8,
+                                children: [
+                                  AppSecondaryButton(
                                     label: 'Edit',
+                                    compact: true,
+                                    icon: Icons.edit_outlined,
                                     onPressed: () =>
                                         _showVehicleForm(vehicle: vehicle),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: AppSecondaryButton(
+                                  AppSecondaryButton(
                                     label: 'Delete',
+                                    compact: true,
+                                    icon: Icons.delete_outline,
+                                    destructive: true,
                                     onPressed: () => _confirmDelete(vehicle),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),

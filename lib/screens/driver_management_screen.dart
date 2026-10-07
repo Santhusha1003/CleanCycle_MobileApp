@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../navigation/municipal_shell.dart';
+
 import '../models/driver.dart';
 import '../services/municipal/driver_service.dart';
 import '../theme/app_colors.dart';
@@ -294,6 +296,7 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                           ),
                           const SizedBox(height: 16),
                           AppSecondaryButton(
+                            compact: true,
                             label: licenseExpiryDate == null
                                 ? 'Select License Expiry Date'
                                 : 'Expiry: ${_formatDate(licenseExpiryDate!)}',
@@ -314,6 +317,8 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                           ),
                           const SizedBox(height: 20),
                           AppPrimaryButton(
+                            compact: true,
+                            icon: Icons.check,
                             label: isEditing ? 'Update Driver' : 'Save Driver',
                             isLoading: false,
                             onPressed: () async {
@@ -422,14 +427,17 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
         title: const Text('Delete Driver'),
         content: Text('Delete driver ${driver.fullName}?'),
         actions: [
-          TextButton(
+          AppSecondaryButton(
+            label: 'Cancel',
+            compact: true,
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          AppSecondaryButton(
+            label: 'Delete',
+            compact: true,
+            destructive: true,
+            icon: Icons.delete_outline,
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -473,6 +481,9 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: BackButton(
+          onPressed: () => MunicipalShell.backToDashboard(context),
+        ),
         backgroundColor: AppColors.background,
         elevation: 0,
         title: const Text(
@@ -506,9 +517,14 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                 onClear: () => _onSearchChanged(''),
               ),
               const SizedBox(height: 16),
-              AppPrimaryButton(
-                label: 'Add Driver',
-                onPressed: () => _showDriverForm(),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: AppPrimaryButton(
+                  label: 'Add Driver',
+                  compact: true,
+                  icon: Icons.add,
+                  onPressed: () => _showDriverForm(),
+                ),
               ),
               const SizedBox(height: 20),
               if (_isLoading)
@@ -599,6 +615,7 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                       final driver = _filteredDrivers[index];
 
                       return AppCard(
+                        color: AppColors.greenSurface,
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -640,24 +657,30 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                                 'License Expiry',
                                 _formatDate(driver.licenseExpiryDate!),
                               ),
-                            const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: AppSecondaryButton(
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Wrap(
+                                alignment: WrapAlignment.end,
+                                spacing: 12,
+                                runSpacing: 8,
+                                children: [
+                                  AppSecondaryButton(
                                     label: 'Edit',
+                                    compact: true,
+                                    icon: Icons.edit_outlined,
                                     onPressed: () =>
                                         _showDriverForm(driver: driver),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: AppSecondaryButton(
+                                  AppSecondaryButton(
                                     label: 'Delete',
+                                    compact: true,
+                                    icon: Icons.delete_outline,
+                                    destructive: true,
                                     onPressed: () => _confirmDelete(driver),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),

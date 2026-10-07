@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../navigation/app_routes.dart';
 import '../services/municipal/municipal_analytics_service.dart';
 import '../theme/app_colors.dart';
 
@@ -64,9 +63,6 @@ class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
   String? _errorMessage;
   MunicipalAnalyticsSummary? _summary;
 
-  // Bottom-nav index — 4 = Reports
-  int _navIndex = 4;
-
   @override
   void initState() {
     super.initState();
@@ -80,34 +76,17 @@ class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
     });
     try {
       final summary = await _analyticsService.getMunicipalAnalyticsSummary();
+      if (!mounted) return;
       setState(() {
         _summary = summary;
         _isLoading = false;
       });
     } on Exception catch (exception) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = _safeErrorMessage(exception);
         _isLoading = false;
       });
-    }
-  }
-
-  // ── Bottom-nav tap (same logic as dashboard) ──────────────────────────────
-  void _onNavTap(int index) {
-    if (index == _navIndex) return;
-    setState(() => _navIndex = index);
-
-    const routes = [
-      AppRoutes.municipalDashboard, // 0
-      AppRoutes.vehicleManagement, // 1
-      AppRoutes.driverManagement, // 2
-      AppRoutes.staffManagement, // 3
-      null, // 4 = already here
-    ];
-
-    final route = routes[index];
-    if (route != null) {
-      Navigator.pushReplacementNamed(context, route);
     }
   }
 
@@ -116,7 +95,6 @@ class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      bottomNavigationBar: _BottomNav(activeIndex: _navIndex, onTap: _onNavTap),
       body: SafeArea(
         child: Column(
           children: [
@@ -883,95 +861,4 @@ class _IconBtn extends StatelessWidget {
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Bottom navigation bar (mirrors dashboard — Reports is active)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.activeIndex, required this.onTap});
-
-  final int activeIndex;
-  final ValueChanged<int> onTap;
-
-  static const _items = [
-    _NavItem(label: 'Dashboard', icon: Icons.dashboard_outlined),
-    _NavItem(label: 'Vehicles', icon: Icons.local_shipping_outlined),
-    _NavItem(label: 'Drivers', icon: Icons.drive_eta_outlined),
-    _NavItem(label: 'Staff', icon: Icons.people_alt_outlined),
-    _NavItem(label: 'Reports', icon: Icons.bar_chart_rounded),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_items.length, (i) {
-              final active = i == activeIndex;
-              return GestureDetector(
-                onTap: () => onTap(i),
-                behavior: HitTestBehavior.opaque,
-                child: SizedBox(
-                  width: 60,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _items[i].icon,
-                        size: 22,
-                        color: active
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _items[i].label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: active
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: active
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: active ? 18 : 0,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem {
-  const _NavItem({required this.label, required this.icon});
-
-  final String label;
-  final IconData icon;
 }

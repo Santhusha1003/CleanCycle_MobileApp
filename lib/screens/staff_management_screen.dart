@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../navigation/municipal_shell.dart';
+
 import '../models/staff.dart';
 import '../services/municipal/staff_service.dart';
 import '../theme/app_colors.dart';
@@ -308,6 +310,8 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
 
                           // ── Submit ───────────────────────────────────────
                           AppPrimaryButton(
+                            compact: true,
+                            icon: Icons.check,
                             label: isEditing
                                 ? 'Update Staff Member'
                                 : 'Save Staff Member',
@@ -474,18 +478,14 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
               ),
             ),
           ),
-          TextButton(
+          AppSecondaryButton(
+            label: 'Edit',
+            compact: true,
+            icon: Icons.edit_outlined,
             onPressed: () {
               Navigator.pop(dialogContext);
               _showStaffForm(staff: staff);
             },
-            child: const Text(
-              'Edit',
-              style: TextStyle(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
         ],
       ),
@@ -528,14 +528,17 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
           'Delete "${staff.fullName}"? This action cannot be undone.',
         ),
         actions: [
-          TextButton(
+          AppSecondaryButton(
+            label: 'Cancel',
+            compact: true,
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          AppSecondaryButton(
+            label: 'Delete',
+            compact: true,
+            destructive: true,
+            icon: Icons.delete_outline,
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -579,6 +582,9 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: BackButton(
+          onPressed: () => MunicipalShell.backToDashboard(context),
+        ),
         backgroundColor: AppColors.background,
         elevation: 0,
         title: const Text(
@@ -617,9 +623,14 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
               const SizedBox(height: 16),
 
               // ── Add button ────────────────────────────────────────────
-              AppPrimaryButton(
-                label: 'Add Staff Member',
-                onPressed: () => _showStaffForm(),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: AppPrimaryButton(
+                  label: 'Add Staff Member',
+                  compact: true,
+                  icon: Icons.add,
+                  onPressed: () => _showStaffForm(),
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -796,6 +807,7 @@ class _StaffCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      color: AppColors.greenSurface,
       padding: const EdgeInsets.all(16),
       onTap: onView,
       child: Column(
@@ -859,19 +871,31 @@ class _StaffCard extends StatelessWidget {
             const SizedBox(height: 6),
             _detailRow(Icons.location_on_outlined, staff.assignedZone!),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // ── Actions ──────────────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: AppSecondaryButton(label: 'Edit', onPressed: onEdit),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AppSecondaryButton(label: 'Delete', onPressed: onDelete),
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                AppSecondaryButton(
+                  label: 'Edit',
+                  compact: true,
+                  icon: Icons.edit_outlined,
+                  onPressed: onEdit,
+                ),
+                AppSecondaryButton(
+                  label: 'Delete',
+                  compact: true,
+                  icon: Icons.delete_outline,
+                  destructive: true,
+                  onPressed: onDelete,
+                ),
+              ],
+            ),
           ),
         ],
       ),

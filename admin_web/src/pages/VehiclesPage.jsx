@@ -77,12 +77,17 @@ const BLANK = {
   status: 'available', lastServiceDate: '', nextServiceDate: '',
 }
 
+// Suggested choices only: Mobile accepts any non-empty vehicleType string.
+// Always retain the stored type as an option when editing a Firestore vehicle.
+const VEHICLE_TYPE_OPTIONS = ['Garbage Truck', 'Compactor', 'Roll-off', 'Rear Loader', 'Side Loader', 'Hook Loader', 'Skip Truck', 'Tipper']
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Modal
 // ─────────────────────────────────────────────────────────────────────────────
 
 function VehicleModal({ initial, onClose }) {
   const isEditing = Boolean(initial?.registrationNumber)
+  const vehicleTypeOptions = [...new Set([...VEHICLE_TYPE_OPTIONS, initial?.vehicleType].filter(Boolean))]
   const [form, setForm] = useState(isEditing ? { ...BLANK, ...initial } : { ...BLANK })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
@@ -134,7 +139,7 @@ function VehicleModal({ initial, onClose }) {
                 <label className="form-label" htmlFor="vm-type">Vehicle Type</label>
                 <select id="vm-type" name="vehicleType" className="form-select" value={form.vehicleType} onChange={handleChange} required>
                   <option value="">Select type…</option>
-                  {['Compactor','Roll-off','Rear Loader','Side Loader','Hook Loader','Skip Truck','Tipper'].map(t=><option key={t}>{t}</option>)}
+                  {vehicleTypeOptions.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div className="form-group">

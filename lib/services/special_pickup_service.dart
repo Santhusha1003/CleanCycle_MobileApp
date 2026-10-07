@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../models/special_pickup_model.dart';
@@ -62,18 +63,17 @@ class SpecialPickupService {
       photoUrls: photoUrls,
     );
 
-    if (!_isFirebaseAvailable) {
-      _mockPickups.insert(0, newPickup);
-      return id;
-    }
+    _mockPickups.insert(0, newPickup);
 
-    try {
-      await _instance.collection('special_pickups').doc(id).set(newPickup.toMap());
-      return id;
-    } catch (e) {
-      _mockPickups.insert(0, newPickup);
-      return id;
+    if (_isFirebaseAvailable) {
+      try {
+        await _instance.collection('special_pickups').doc(id).set(newPickup.toMap());
+        debugPrint('Special pickup request successfully saved to Firestore: $id');
+      } catch (e) {
+        debugPrint('Firestore save error for special pickup: $e');
+      }
     }
+    return id;
   }
 
   /// [READ] Stream a single pickup booking (used for receipts & status timelines)
@@ -88,7 +88,13 @@ class SpecialPickupService {
           .collection('special_pickups')
           .doc(requestId)
           .snapshots()
-          .map((doc) => doc.exists ? SpecialPickupModel.fromFirestore(doc) : null);
+          .map((doc) {
+        if (doc.exists) {
+          return SpecialPickupModel.fromFirestore(doc);
+        }
+        final match = _mockPickups.where((p) => p.requestId == requestId);
+        return match.isNotEmpty ? match.first : null;
+      });
     } catch (_) {
       final match = _mockPickups.where((p) => p.requestId == requestId);
       return Stream.value(match.isNotEmpty ? match.first : null);
@@ -106,9 +112,12 @@ class SpecialPickupService {
           .collection('special_pickups')
           .where('userId', isEqualTo: userId)
           .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => SpecialPickupModel.fromFirestore(doc))
-              .toList());
+          .map((snapshot) {
+        if (snapshot.docs.isNotEmpty) {
+          return snapshot.docs.map((doc) => SpecialPickupModel.fromFirestore(doc)).toList();
+        }
+        return List<SpecialPickupModel>.from(_mockPickups);
+      });
     } catch (_) {
       return Stream.value(List.from(_mockPickups));
     }
@@ -130,7 +139,10 @@ class SpecialPickupService {
           'scheduledDate': Timestamp.fromDate(newDate),
           'timeSlot': newSlot,
         });
-      } catch (_) {}
+        debugPrint('Pickup rescheduled in Firestore: $requestId');
+      } catch (e) {
+        debugPrint('Firestore update error on reschedule: $e');
+      }
     }
   }
 
@@ -146,7 +158,9 @@ class SpecialPickupService {
         await _instance.collection('special_pickups').doc(requestId).update({
           'notes': newNotes,
         });
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Firestore update error on notes: $e');
+      }
     }
   }
 
@@ -157,7 +171,10 @@ class SpecialPickupService {
     if (_isFirebaseAvailable) {
       try {
         await _instance.collection('special_pickups').doc(requestId).delete();
-      } catch (_) {}
+        debugPrint('Pickup deleted from Firestore: $requestId');
+      } catch (e) {
+        debugPrint('Firestore delete error: $e');
+      }
     }
   }
 
@@ -176,7 +193,9 @@ class SpecialPickupService {
         await _instance.collection('special_pickups').doc(requestId).update({
           'status': newStatus,
         });
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Firestore update error on status: $e');
+      }
     }
   }
 }

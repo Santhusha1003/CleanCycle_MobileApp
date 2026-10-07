@@ -14,33 +14,33 @@ class _SelectWasteTypeScreenState extends State<SelectWasteTypeScreen> {
   final List<Map<String, dynamic>> _categories = [
     {
       'title': 'Furniture',
-      'subtitle': 'Sofas, beds, wardrobes, tables, chairs',
+      'subtitle': 'Sofa, chairs, tables, etc.',
       'icon': Icons.chair,
-      'color': const Color(0xFF2E7D32),
+      'color': const Color(0xFF8D6E63),
     },
     {
-      'title': 'E-Waste',
-      'subtitle': 'TVs, refrigerators, computers, batteries',
-      'icon': Icons.devices_other,
-      'color': const Color(0xFF0277BD),
+      'title': 'Electronic Waste',
+      'subtitle': 'TVs, computers, appliances',
+      'icon': Icons.tv,
+      'color': const Color(0xFF0288D1),
     },
     {
       'title': 'Garden Waste',
-      'subtitle': 'Tree branches, logs, dry clippings, soil',
-      'icon': Icons.yard,
-      'color': const Color(0xFF558B2F),
+      'subtitle': 'Branches, leaves, grass',
+      'icon': Icons.eco,
+      'color': const Color(0xFF43A047),
     },
     {
-      'title': 'Construction Debris',
-      'subtitle': 'Bricks, tiles, wood planks, plasterboard',
-      'icon': Icons.construction,
+      'title': 'Construction Waste',
+      'subtitle': 'Bricks, wood, debris',
+      'icon': Icons.handyman,
       'color': const Color(0xFFD84315),
     },
     {
-      'title': 'Other Bulky Items',
-      'subtitle': 'Bicycles, carpets, large gym gear, etc.',
-      'icon': Icons.category,
-      'color': const Color(0xFF6A1B9A),
+      'title': 'Other',
+      'subtitle': 'Specify your waste type',
+      'icon': Icons.more_horiz,
+      'color': Colors.grey.shade700,
     },
   ];
 
@@ -50,7 +50,7 @@ class _SelectWasteTypeScreenState extends State<SelectWasteTypeScreen> {
       backgroundColor: const Color(0xFFF7FAF8),
       appBar: AppBar(
         title: const Text(
-          'Step 1: Select Waste Type',
+          'Select Waste Type',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         backgroundColor: const Color(0xFF1B5E20),
@@ -59,13 +59,6 @@ class _SelectWasteTypeScreenState extends State<SelectWasteTypeScreen> {
       ),
       body: Column(
         children: [
-          // Step Progress Bar
-          LinearProgressIndicator(
-            value: 0.33,
-            backgroundColor: Colors.grey.shade200,
-            color: const Color(0xFF2E7D32),
-            minHeight: 4,
-          ),
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -95,8 +88,8 @@ class _SelectWasteTypeScreenState extends State<SelectWasteTypeScreen> {
                       boxShadow: [
                         BoxShadow(
                           color: isSelected
-                              ? const Color(0xFF2E7D32).withOpacity(0.08)
-                              : Colors.black.withOpacity(0.02),
+                              ? const Color(0xFF2E7D32).withValues(alpha: 0.08)
+                              : Colors.black.withValues(alpha: 0.02),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -107,13 +100,13 @@ class _SelectWasteTypeScreenState extends State<SelectWasteTypeScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: (cat['color'] as Color).withOpacity(0.12),
+                            color: (cat['color'] as Color).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
                             cat['icon'] as IconData,
                             color: cat['color'] as Color,
-                            size: 28,
+                            size: 26,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -140,15 +133,10 @@ class _SelectWasteTypeScreenState extends State<SelectWasteTypeScreen> {
                             ],
                           ),
                         ),
-                        Radio<String>(
-                          value: cat['title'] as String,
-                          groupValue: _selectedCategory,
-                          activeColor: const Color(0xFF2E7D32),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => _selectedCategory = val);
-                            }
-                          },
+                        Icon(
+                          Icons.chevron_right,
+                          color: isSelected ? const Color(0xFF2E7D32) : Colors.grey.shade400,
+                          size: 22,
                         ),
                       ],
                     ),

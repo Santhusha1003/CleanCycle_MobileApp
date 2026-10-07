@@ -52,7 +52,7 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
             : _currentTabIndex == 1
                 ? const LiveTrackingScreen(isEmbedded: true)
                 : _currentTabIndex == 2
-                    ? const CollectionStatusScreen(isEmbedded: true)
+                    ? const SpecialPickupScreen(isEmbedded: true)
                     : _buildProfilePlaceholder(),
       ),
       bottomNavigationBar: _buildBottomNav(),
@@ -99,28 +99,34 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
         Row(
           children: [
             CircleAvatar(
-              radius: 24,
+              radius: 22,
               backgroundColor: const Color(0xFFE8F5E9),
-              child: const Icon(Icons.person, color: Color(0xFF2E7D32), size: 28),
+              child: const Icon(Icons.person, color: Color(0xFF2E7D32), size: 26),
             ),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Hello, Vishani!',
+                  'Hi, Santhusha!',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1B3B2B),
                   ),
                 ),
-                Text(
-                  'Zone 3 • Ward 12 Colombo',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      "Let's keep our city clean",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.eco, color: Color(0xFF2E7D32), size: 14),
+                  ],
                 ),
               ],
             ),
@@ -130,16 +136,10 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(color: Colors.grey.shade200),
           ),
           child: IconButton(
-            icon: const Icon(Icons.notifications_none, color: Color(0xFF1B3B2B)),
+            icon: const Icon(Icons.notifications_none, color: Color(0xFF1B3B2B), size: 22),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('No new collection alerts')),
@@ -154,126 +154,96 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
   Widget _buildNextCollectionCard() {
     if (_isLoading) {
       return Container(
-        height: 160,
+        height: 100,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: const Color(0xFF1B5E20),
+          borderRadius: BorderRadius.circular(18),
         ),
         child: const Center(
-          child: CircularProgressIndicator(color: Color(0xFF2E7D32)),
+          child: CircularProgressIndicator(color: Colors.white),
         ),
       );
     }
 
-    final date = _nextCollection?['date'] as DateTime? ?? DateTime.now();
-    final formattedDate = DateFormat('EEEE, MMM d').format(date);
-    final category = _nextCollection?['category'] ?? 'Recyclables';
-    final timeWindow = _nextCollection?['timeWindow'] ?? '08:00 AM - 10:00 AM';
+    final date = _nextCollection?['date'] as DateTime? ?? DateTime(2026, 8, 13);
+    final formattedDate = DateFormat('EEEE, d MMM yyyy').format(date);
+    final category = _nextCollection?['category'] ?? 'Recyclable Waste';
+    final timeWindow = _nextCollection?['timeWindow'] ?? '8:00 AM - 12:00 PM';
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const LiveTrackingScreen()),
+        );
+      },
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1B5E20),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1B5E20).withValues(alpha: 0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1B5E20).withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Your Next Collection',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
                 ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.access_time_filled, color: Colors.white, size: 14),
-                    SizedBox(width: 4),
-                    Text(
-                      'NEXT SCHEDULED PICKUP',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.8,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        category,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        formattedDate,
+                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                      Text(
+                        timeWindow,
+                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(Icons.recycling, color: Colors.white, size: 28),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            category,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+                const Icon(Icons.chevron_right, color: Colors.white, size: 24),
+              ],
             ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(Icons.calendar_today, color: Colors.white70, size: 14),
-              const SizedBox(width: 6),
-              Text(
-                formattedDate,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-              ),
-              const SizedBox(width: 14),
-              const Icon(Icons.schedule, color: Colors.white70, size: 14),
-              const SizedBox(width: 6),
-              Text(
-                timeWindow,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LiveTrackingScreen()),
-                );
-              },
-              icon: const Icon(Icons.navigation, size: 16, color: Color(0xFF1B5E20)),
-              label: const Text(
-                'Track Truck',
-                style: TextStyle(
-                  color: Color(0xFF1B5E20),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -283,16 +253,14 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      crossAxisSpacing: 14,
-      mainAxisSpacing: 14,
-      childAspectRatio: 1.15,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.25,
       children: [
         _buildActionTile(
           title: 'Track Collection',
-          subtitle: 'Live Truck GPS',
-          icon: Icons.local_shipping_outlined,
-          color: const Color(0xFF2E7D32),
-          bgColor: const Color(0xFFE8F5E9),
+          icon: Icons.location_on,
+          iconColor: const Color(0xFF2E7D32),
           onTap: () {
             Navigator.push(
               context,
@@ -301,11 +269,9 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
           },
         ),
         _buildActionTile(
-          title: 'Report Missed',
-          subtitle: 'Lodge Complaint',
-          icon: Icons.report_problem_outlined,
-          color: const Color(0xFFD84315),
-          bgColor: const Color(0xFFFBE9E7),
+          title: 'Report Missed\nCollection',
+          icon: Icons.warning_amber_rounded,
+          iconColor: Colors.red.shade600,
           onTap: () {
             Navigator.push(
               context,
@@ -314,11 +280,9 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
           },
         ),
         _buildActionTile(
-          title: 'Special Pickup',
-          subtitle: 'Bulky Waste / E-Waste',
-          icon: Icons.inventory_2_outlined,
-          color: const Color(0xFF0277BD),
-          bgColor: const Color(0xFFE1F5FE),
+          title: 'Special Pickup\nRequest',
+          icon: Icons.local_shipping,
+          iconColor: const Color(0xFF2E7D32),
           onTap: () {
             Navigator.push(
               context,
@@ -327,11 +291,9 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
           },
         ),
         _buildActionTile(
-          title: 'Status Timeline',
-          subtitle: '5-Stage Progression',
-          icon: Icons.timeline,
-          color: const Color(0xFF6A1B9A),
-          bgColor: const Color(0xFFF3E5F5),
+          title: 'View Status',
+          icon: Icons.article_outlined,
+          iconColor: const Color(0xFF2E7D32),
           onTap: () {
             Navigator.push(
               context,
@@ -345,61 +307,41 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
 
   Widget _buildActionTile({
     required String title,
-    required String subtitle,
     required IconData icon,
-    required Color color,
-    required Color bgColor,
+    required Color iconColor,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
+            Icon(icon, color: iconColor, size: 30),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1B3B2B),
+                height: 1.15,
               ),
-              child: Icon(icon, color: color, size: 26),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1B3B2B),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
             ),
           ],
         ),
@@ -408,67 +350,63 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
   }
 
   Widget _buildRecentActivitySection() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      children: [
+        // Clean Communities Banner matching Screen 1
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8F5E9),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFA5D6A7).withValues(alpha: 0.6)),
+          ),
+          child: Row(
             children: [
-              const Text(
-                'Collection Guidelines',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1B3B2B),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Clean Communities',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1B5E20),
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Brighter Tomorrows',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2E7D32),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                'View All',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).primaryColor,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'assets/images/clean_communities.jpg',
+                  height: 70,
+                  width: 70,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.eco,
+                    size: 48,
+                    color: Color(0xFF2E7D32),
+                  ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          _buildTipItem(
-            Icons.check_circle_outline,
-            'Place bins outside before 07:30 AM on collection days.',
-          ),
-          const SizedBox(height: 8),
-          _buildTipItem(
-            Icons.check_circle_outline,
-            'Separate electronic waste from regular municipal trash.',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTipItem(IconData icon, String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: const Color(0xFF2E7D32), size: 18),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.3),
           ),
         ),
       ],
     );
   }
+
 
   Widget _buildProfilePlaceholder() {
     return Center(

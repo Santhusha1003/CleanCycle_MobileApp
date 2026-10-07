@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../models/missed_report_model.dart';
@@ -35,6 +36,7 @@ class MissedReportService {
       collectionType: 'Recyclable',
       scheduledDate: DateTime.now().subtract(const Duration(days: 1)),
       description: 'Blue recycling bin was not emptied during the morning round.',
+      address: 'No. 15, Station Road, Colombo 04',
       photoUrl: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&w=600&q=80',
       status: 'Reported',
       reportedOn: DateTime.now().subtract(const Duration(hours: 4)),
@@ -58,18 +60,17 @@ class MissedReportService {
       photoUrl: photoUrl,
     );
 
-    if (!_isFirebaseAvailable) {
-      _mockReports.insert(0, newReport);
-      return id;
-    }
+    _mockReports.insert(0, newReport);
 
-    try {
-      await _instance.collection('missed_reports').doc(id).set(newReport.toMap());
-      return id;
-    } catch (e) {
-      _mockReports.insert(0, newReport);
-      return id;
+    if (_isFirebaseAvailable) {
+      try {
+        await _instance.collection('missed_reports').doc(id).set(newReport.toMap());
+        debugPrint('Missed report successfully saved to Firestore: $id');
+      } catch (e) {
+        debugPrint('Firestore save error for missed report: $e');
+      }
     }
+    return id;
   }
 
   /// [READ] Stream a single report by ID (receipt/status screen)
@@ -84,7 +85,13 @@ class MissedReportService {
           .collection('missed_reports')
           .doc(reportId)
           .snapshots()
-          .map((doc) => doc.exists ? MissedReportModel.fromFirestore(doc) : null);
+          .map((doc) {
+        if (doc.exists) {
+          return MissedReportModel.fromFirestore(doc);
+        }
+        final match = _mockReports.where((r) => r.reportId == reportId);
+        return match.isNotEmpty ? match.first : null;
+      });
     } catch (_) {
       final match = _mockReports.where((r) => r.reportId == reportId);
       return Stream.value(match.isNotEmpty ? match.first : null);
@@ -102,27 +109,57 @@ class MissedReportService {
           .collection('missed_reports')
           .where('userId', isEqualTo: userId)
           .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => MissedReportModel.fromFirestore(doc))
-              .toList());
+          .map((snapshot) {
+        if (snapshot.docs.isNotEmpty) {
+          return snapshot.docs.map((doc) => MissedReportModel.fromFirestore(doc)).toList();
+        }
+        return List<MissedReportModel>.from(_mockReports);
+      });
     } catch (_) {
       return Stream.value(List.from(_mockReports));
     }
   }
 
-  /// [UPDATE] Edit report description
+  /// [UPDATE] Edit report description (backward compatible)
   Future<void> updateReportDescription(String reportId, String newDescription) async {
+    await updateReportDetails(reportId, description: newDescription);
+  }
+
+  /// [UPDATE] Edit all relevant report fields
+  Future<void> updateReportDetails(
+    String reportId, {
+    String? collectionType,
+    DateTime? scheduledDate,
+    String? address,
+    String? description,
+    String? photoUrl,
+  }) async {
     final index = _mockReports.indexWhere((r) => r.reportId == reportId);
     if (index != -1) {
-      _mockReports[index] = _mockReports[index].copyWith(description: newDescription);
+      _mockReports[index] = _mockReports[index].copyWith(
+        collectionType: collectionType ?? _mockReports[index].collectionType,
+        scheduledDate: scheduledDate ?? _mockReports[index].scheduledDate,
+        address: address ?? _mockReports[index].address,
+        description: description ?? _mockReports[index].description,
+        photoUrl: photoUrl ?? _mockReports[index].photoUrl,
+      );
     }
 
     if (_isFirebaseAvailable) {
       try {
-        await _instance.collection('missed_reports').doc(reportId).update({
-          'description': newDescription,
-        });
-      } catch (_) {}
+        final Map<String, dynamic> updateData = {};
+        if (collectionType != null) updateData['collectionType'] = collectionType;
+        if (scheduledDate != null) updateData['scheduledDate'] = Timestamp.fromDate(scheduledDate);
+        if (address != null) updateData['address'] = address;
+        if (description != null) updateData['description'] = description;
+        if (photoUrl != null) updateData['photoUrl'] = photoUrl;
+
+        if (updateData.isNotEmpty) {
+          await _instance.collection('missed_reports').doc(reportId).update(updateData);
+        }
+      } catch (e) {
+        debugPrint('Firestore update error: $e');
+      }
     }
   }
 
@@ -138,7 +175,9 @@ class MissedReportService {
         await _instance.collection('missed_reports').doc(reportId).update({
           'status': newStatus,
         });
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Firestore update error: $e');
+      }
     }
   }
 
@@ -149,7 +188,9 @@ class MissedReportService {
     if (_isFirebaseAvailable) {
       try {
         await _instance.collection('missed_reports').doc(reportId).delete();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Firestore delete error: $e');
+      }
     }
   }
 }

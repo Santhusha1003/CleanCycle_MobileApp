@@ -1,63 +1,163 @@
-# CleanCycle — Authentication, Profile & Communication
+# CleanCycle – Waste Collection & Recycling Scheduling App
 
-Flutter mobile app module for IT3060 HCI Milestone 03. **State management: Provider** (less setup than Riverpod, easier to walk through in a viva).
+CleanCycle is a Flutter-based mobile application designed to improve waste collection and recycling management. It aims to help residents access waste collection schedules, receive reminders, report missed collections, locate recycling centres, and request special waste pickups. The application also supports waste collection drivers and municipal officers through relevant management interfaces.
 
-## How to run
+## Project Objectives
+
+- Improve access to waste collection schedules and related information.
+- Help residents manage waste collection activities more conveniently.
+- Support recycling awareness and responsible waste disposal.
+- Provide relevant interfaces for residents, drivers, and municipal officers.
+
+## Main Features
+
+### Resident Features
+- User registration and login
+- Profile management
+- Waste collection schedules and calendar views
+- Collection reminders and notifications
+- Missed collection reporting
+- Recycling information and recycling centre locator
+- Special waste pickup requests
+- Collection history
+
+### Driver Features
+- Access to relevant collection tasks
+- View collection information
+- Update collection status where supported
+
+### Municipal Officer Features
+- Collection schedule management
+- Vehicle management
+- Driver management
+- Collection analytics and overview
+
+*Feature availability may vary depending on the implemented version of the application.*
+
+## Technology Stack
+
+| Technology | Purpose |
+|---|---|
+| Flutter | Mobile application frontend |
+| Dart | Application programming language |
+| Firebase Authentication | User authentication |
+| Cloud Firestore | Cloud database |
+| Firebase Cloud Messaging (FCM) | Push notifications |
+| Google Maps Flutter / Google Maps API | Maps and location-related features |
+| Git and GitHub | Version control and source code management |
+
+## Prerequisites
+
+Before running the project, ensure that you have installed:
+
+- Flutter SDK
+- Dart SDK (included with Flutter)
+- Visual Studio Code or Android Studio
+- Android emulator or a compatible physical device
+- Git
+
+Some features may also require Firebase project configuration and a valid Google Maps API key.
+
+## Installation and Setup
+
+### 1. Clone the Repository
+
+Open your terminal and run:
+
+```bash
+git clone https://github.com/Santhusha1003/CleanCycle_MobileApp.git
+```
+
+### 2. Navigate to the Project Directory
+
+```bash
+cd CleanCycle_MobileApp
+```
+
+### 3. Check the Flutter Environment
+
+```bash
+flutter doctor
+```
+
+Resolve any required setup issues before continuing.
+
+### 4. Install Dependencies
 
 ```bash
 flutter pub get
-flutter run
 ```
 
-Use an Android emulator/device or iOS simulator. Enable Windows **Developer Mode** if plugin builds fail with a symlink error.
+### 5. Configure Firebase and Google Maps
 
-On first launch without Firebase configured, the Login screen still appears and shows that Firebase is not set up.
+Ensure the project is connected to the correct Firebase project and that the required configuration files are available.
 
-## Firebase setup
+Depending on the existing project setup, configuration may include:
 
-1. Create a Firebase project and add Android (`com.example.cleancycle_mobileapp`) and iOS apps.
-2. Enable **Authentication** providers:
-   - Email/Password
-   - Google
-   - (Apple is UI-only until an Apple Developer account exists)
-3. Create a **Cloud Firestore** database (test mode while developing, then deploy `firestore.rules`).
-4. Enable **Cloud Messaging**.
-5. From the project root:
+- Firebase configuration for Android and/or iOS
+- Firebase Authentication and Cloud Firestore setup
+- Firebase Cloud Messaging configuration
+- Google Maps API key configuration
+
+If the project uses FlutterFire CLI, Firebase configuration may be generated with:
 
 ```bash
 dart pub global activate flutterfire_cli
 flutterfire configure
 ```
 
-6. In `lib/main.dart`, replace `Firebase.initializeApp()` with:
+Run the configuration command only if it is appropriate for the existing Firebase project. Do not replace existing configuration files unnecessarily.
 
-```dart
-await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-```
+**Important:** Do not commit private credentials, service-account keys, or other secrets to the public repository. Configure API keys and credentials securely.
 
-7. Deploy rules:
+## Running the Application
 
-```bash
-firebase deploy --only firestore:rules
-```
-
-8. **Google Sign-In (Android)** needs the SHA-1 of your debug keystore:
+### 1. Check Available Devices
 
 ```bash
-cd android
-./gradlew signingReport
+flutter devices
 ```
 
-Add the SHA-1 (and SHA-256) in Firebase Console → Project settings → your Android app, then download a fresh `google-services.json`.
+Start an emulator or connect a compatible physical device.
 
-iOS Google Sign-In: add the `REVERSED_CLIENT_ID` URL scheme from `GoogleService-Info.plist` in Xcode.
-
-9. Create at least one **driver** and one **municipal_officer** user in Firestore (`users/{uid}.role`) — registration always creates `resident`.
-
-## Tests
+### 2. Run the Application
 
 ```bash
-flutter test
+flutter run
 ```
 
-Manual CRUD cases: `docs/FUNCTIONAL_TEST_CASES.md`. Prototype deviations: `DEVIATIONS.md`.
+To build an Android APK, run:
+
+```bash
+flutter build apk
+```
+
+The generated APK can be found under:
+
+```text
+build/app/outputs/flutter-apk/
+```
+
+Build output locations may vary depending on the Flutter configuration.
+
+## Troubleshooting
+
+- **Dependencies fail to resolve:** Run `flutter pub get` and check your internet connection.
+- **Firebase errors:** Verify that the Firebase configuration files match the correct Firebase project and application identifiers.
+- **Google Maps does not load:** Check the API key, API enablement, and billing/configuration requirements.
+- **No device is detected:** Run `flutter devices` and confirm that the emulator or physical device is available.
+- **Build errors:** Run `flutter doctor` and review the error messages in the terminal.
+
+## Version Control
+
+This project uses Git and GitHub for version control and collaboration.
+
+Repository: https://github.com/Santhusha1003/CleanCycle_MobileApp
+
+## Project Purpose
+
+CleanCycle was developed as an academic project for the Human-Computer Interaction (HCI) module. It applies user-centred design principles to a practical waste collection and recycling management problem.
+
+## License
+
+This project was developed for academic purposes. No open-source license is specified unless one is added to the repository.

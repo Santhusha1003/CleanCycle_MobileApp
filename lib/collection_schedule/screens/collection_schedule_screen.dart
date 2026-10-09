@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_colors.dart';
+import '../../widgets/common/app_card.dart';
+
 import '../models/collection_schedule.dart';
 import '../services/collection_schedule_service.dart';
 import '../widgets/collection_bottom_nav.dart';
@@ -12,7 +15,9 @@ import 'collection_history_screen.dart';
 import 'missed_collection_report_screen.dart';
 
 class CollectionScheduleScreen extends StatefulWidget {
-  const CollectionScheduleScreen({super.key});
+  const CollectionScheduleScreen({super.key, this.scheduleService});
+
+  final CollectionScheduleService? scheduleService;
 
   @override
   State<CollectionScheduleScreen> createState() =>
@@ -20,8 +25,8 @@ class CollectionScheduleScreen extends StatefulWidget {
 }
 
 class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
-  final CollectionScheduleService _scheduleService =
-      CollectionScheduleService();
+  late final CollectionScheduleService _scheduleService =
+      widget.scheduleService ?? CollectionScheduleService();
 
   bool showThisWeek = true;
 
@@ -197,7 +202,7 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9F7),
+      backgroundColor: AppColors.background,
 
       // ========================================================
       // APP BAR
@@ -206,21 +211,31 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: const IconThemeData(color: AppColors.primaryDark),
         title: const Text(
           'Collection Schedule',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+          style: TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
         ),
         actions: [
-          IconButton(
-            tooltip: 'Collection Calendar',
-            onPressed: _openCalendar,
-            icon: const Icon(
-              Icons.calendar_month_outlined,
-              color: Colors.black,
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: IconButton(
+              tooltip: 'Collection Calendar',
+              onPressed: _openCalendar,
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.greenSurface,
+                foregroundColor: CollectionBottomNav.primaryGreen,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.calendar_month_outlined, size: 22),
             ),
           ),
-          const SizedBox(width: 6),
         ],
       ),
 
@@ -232,177 +247,198 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
       // ========================================================
       // BODY
       // ========================================================
-      body: Column(
-        children: [
-          // ====================================================
-          // THIS WEEK / THIS MONTH
-          // ====================================================
-
-          Container(
-            margin: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _filterButton(
-                    title: 'This Week',
-                    selected: showThisWeek,
-                    onTap: () {
-                      setState(() {
-                        showThisWeek = true;
-                      });
-                    },
-                  ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 24),
+          child: Column(
+            children: [
+              // ====================================================
+              // THIS WEEK / THIS MONTH
+              // ====================================================
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.lightGreen,
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                Expanded(
-                  child: _filterButton(
-                    title: 'This Month',
-                    selected: !showThisWeek,
-                    onTap: () {
-                      setState(() {
-                        showThisWeek = false;
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // ====================================================
-          // WASTE CATEGORIES
-          // ====================================================
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: _featureButton(
-              icon: Icons.category_outlined,
-              title: 'Waste Categories',
-              description: 'Learn about different types of waste.',
-              backgroundColor: const Color(0xFFE8F5E9),
-              borderColor: const Color(0xFFB7DFBF),
-              onTap: _openWasteCategories,
-            ),
-          ),
-
-          // ====================================================
-          // RECYCLING GUIDE
-          // ====================================================
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: _featureButton(
-              icon: Icons.recycling,
-              title: 'Recycling Guide',
-              description: 'Simple tips for a greener tomorrow.',
-              backgroundColor: const Color(0xFFE8F5E9),
-              borderColor: const Color(0xFFB7DFBF),
-              onTap: _openRecyclingTips,
-            ),
-          ),
-
-          // ====================================================
-          // COLLECTION HISTORY
-          // ====================================================
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: _featureButton(
-              icon: Icons.history,
-              title: 'Collection History',
-              description: 'View your previous waste collections.',
-              backgroundColor: Colors.white,
-              borderColor: Colors.grey.shade300,
-              onTap: _openCollectionHistory,
-            ),
-          ),
-
-          // ====================================================
-          // REPORT MISSED COLLECTION
-          // ====================================================
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: _featureButton(
-              icon: Icons.report_problem_outlined,
-              title: 'Report Missed Collection',
-              description: 'Report a collection that did not happen.',
-              backgroundColor: const Color(0xFFFFF8E1),
-              borderColor: const Color(0xFFFFE0A3),
-              onTap: _openMissedCollectionReport,
-            ),
-          ),
-
-          // ====================================================
-          // FIRESTORE SCHEDULE LIST
-          // ====================================================
-          Expanded(
-            child: StreamBuilder<List<CollectionSchedule>>(
-              stream: _scheduleService.getSchedules(),
-              builder: (context, snapshot) {
-                // LOADING
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                // ERROR
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Error loading schedules:\n'
-                        '${snapshot.error}',
-                        textAlign: TextAlign.center,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _filterButton(
+                        title: 'This Week',
+                        selected: showThisWeek,
+                        onTap: () {
+                          setState(() {
+                            showThisWeek = true;
+                          });
+                        },
                       ),
                     ),
-                  );
-                }
-
-                // NO FIRESTORE DATA
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No collection schedules available.',
-                      style: TextStyle(fontSize: 15, color: Colors.grey),
+                    Expanded(
+                      child: _filterButton(
+                        title: 'This Month',
+                        selected: !showThisWeek,
+                        onTap: () {
+                          setState(() {
+                            showThisWeek = false;
+                          });
+                        },
+                      ),
                     ),
-                  );
-                }
+                  ],
+                ),
+              ),
 
-                // FILTER
-                final schedules = _filterSchedules(snapshot.data!);
+              // ====================================================
+              // WASTE CATEGORIES
+              // ====================================================
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: _featureButton(
+                  icon: Icons.category_outlined,
+                  title: 'Waste Categories',
+                  description: 'Learn about different types of waste.',
+                  backgroundColor: AppColors.greenSurface,
+                  onTap: _openWasteCategories,
+                ),
+              ),
 
-                // SORT BY DATE
-                schedules.sort(
-                  (a, b) => a.collectionDate.compareTo(b.collectionDate),
-                );
+              // ====================================================
+              // RECYCLING GUIDE
+              // ====================================================
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: _featureButton(
+                  icon: Icons.recycling,
+                  title: 'Recycling Guide',
+                  description: 'Simple tips for a greener tomorrow.',
+                  backgroundColor: AppColors.greenSurface,
+                  onTap: _openRecyclingTips,
+                ),
+              ),
 
-                // NO DATA FOR CURRENT FILTER
-                if (schedules.isEmpty) {
-                  return Center(
-                    child: Text(
-                      showThisWeek
-                          ? 'No schedules for this week.'
-                          : 'No schedules for this month.',
-                      style: const TextStyle(fontSize: 15, color: Colors.grey),
+              // ====================================================
+              // COLLECTION HISTORY
+              // ====================================================
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: _featureButton(
+                  icon: Icons.history,
+                  title: 'Collection History',
+                  description: 'View your previous waste collections.',
+                  backgroundColor: Colors.white,
+                  onTap: _openCollectionHistory,
+                ),
+              ),
+
+              // ====================================================
+              // REPORT MISSED COLLECTION
+              // ====================================================
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: _featureButton(
+                  icon: Icons.report_problem_outlined,
+                  title: 'Report Missed Collection',
+                  description: 'Report a collection that did not happen.',
+                  backgroundColor: const Color(0xFFFFF8E1),
+                  onTap: _openMissedCollectionReport,
+                ),
+              ),
+
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Your Collections',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
                     ),
-                  );
-                }
+                  ),
+                ),
+              ),
 
-                // SHOW SCHEDULES
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: schedules.length,
-                  itemBuilder: (context, index) {
-                    final schedule = schedules[index];
+              // ====================================================
+              // FIRESTORE SCHEDULE LIST
+              // ====================================================
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: StreamBuilder<List<CollectionSchedule>>(
+                  stream: _scheduleService.getSchedules(),
+                  builder: (context, snapshot) {
+                    // LOADING
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                    return _scheduleCard(schedule);
+                    // ERROR
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'Error loading schedules:\n'
+                            '${snapshot.error}',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    }
+
+                    // NO FIRESTORE DATA
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          'No collection schedules available.',
+                          style: TextStyle(fontSize: 15, color: Colors.grey),
+                        ),
+                      );
+                    }
+
+                    // FILTER
+                    final schedules = _filterSchedules(snapshot.data!);
+
+                    // SORT BY DATE
+                    schedules.sort(
+                      (a, b) => a.collectionDate.compareTo(b.collectionDate),
+                    );
+
+                    // NO DATA FOR CURRENT FILTER
+                    if (schedules.isEmpty) {
+                      return Center(
+                        child: Text(
+                          showThisWeek
+                              ? 'No schedules for this week.'
+                              : 'No schedules for this month.',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      );
+                    }
+
+                    // SHOW SCHEDULES
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: schedules.length,
+                      itemBuilder: (context, index) {
+                        final schedule = schedules[index];
+
+                        return _scheduleCard(schedule);
+                      },
+                    );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -416,20 +452,26 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
     required bool selected,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF159447) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: selected ? Colors.white : Colors.black87,
-            fontWeight: FontWeight.w600,
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? CollectionBottomNav.primaryGreen : Colors.transparent,
+        borderRadius: BorderRadius.circular(11),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(11),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: selected ? Colors.white : AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ),
       ),
@@ -445,36 +487,30 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
     required String title,
     required String description,
     required Color backgroundColor,
-    required Color borderColor,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    final amber = title == 'Report Missed Collection';
+    final accent = amber
+        ? const Color(0xFF946200)
+        : CollectionBottomNav.primaryGreen;
+    return AppCard(
+      color: backgroundColor,
+      padding: EdgeInsets.zero,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            // ICON
             Container(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: amber ? const Color(0xFFFFEFC8) : AppColors.lightGreen,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: const Color(0xFF159447), size: 27),
+              child: Icon(icon, color: accent, size: 22),
             ),
-
             const SizedBox(width: 12),
-
-            // TEXT
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -482,20 +518,25 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     description,
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
-
-            const Icon(Icons.chevron_right, color: Color(0xFF159447)),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, color: accent, size: 20),
           ],
         ),
       ),
@@ -507,52 +548,105 @@ class _CollectionScheduleScreenState extends State<CollectionScheduleScreen> {
   // ============================================================
 
   Widget _scheduleCard(CollectionSchedule schedule) {
-    return Card(
-      color: Colors.white,
-      elevation: 1,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-
-        // ICON
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8F5E9),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            _getWasteIcon(schedule.wasteType),
-            color: const Color(0xFF159447),
-            size: 28,
-          ),
+    final time = [
+      schedule.startTime.trim(),
+      schedule.endTime.trim(),
+    ].where((value) => value.isNotEmpty).join(' – ');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppCard(
+        padding: const EdgeInsets.all(16),
+        onTap: () => _openScheduleDetails(schedule),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.lightGreen,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _getWasteIcon(schedule.wasteType),
+                    color: CollectionBottomNav.primaryGreen,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _formatDate(schedule.collectionDate),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textSecondary,
+                ),
+              ],
+            ),
+            if (schedule.wasteType.trim().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.greenSurface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  schedule.wasteType,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+              ),
+            ],
+            if (time.isNotEmpty || schedule.status.trim().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 16,
+                runSpacing: 8,
+                children: [
+                  if (time.isNotEmpty)
+                    _scheduleDetail(Icons.schedule_outlined, time),
+                  if (schedule.status.trim().isNotEmpty)
+                    _scheduleDetail(
+                      Icons.check_circle_outline,
+                      schedule.status,
+                    ),
+                ],
+              ),
+            ],
+          ],
         ),
-
-        // DATE
-        title: Text(
-          _formatDate(schedule.collectionDate),
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-
-        // WASTE TYPE
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            schedule.wasteType,
-            style: const TextStyle(color: Colors.black87),
-          ),
-        ),
-
-        // ARROW
-        trailing: const Icon(Icons.chevron_right),
-
-        // OPEN DETAILS
-        onTap: () {
-          _openScheduleDetails(schedule);
-        },
       ),
     );
   }
+
+  Widget _scheduleDetail(IconData icon, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 16, color: AppColors.textSecondary),
+      const SizedBox(width: 6),
+      Flexible(
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        ),
+      ),
+    ],
+  );
 }

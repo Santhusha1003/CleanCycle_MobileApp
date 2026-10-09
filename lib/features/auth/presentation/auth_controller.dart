@@ -79,6 +79,13 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> _syncUser(User? user) async {
+    // TEMPORARY runtime diagnostics; no passwords or tokens.
+    if (kDebugMode) {
+      debugPrint(
+        '[AUTH DEBUG] Firebase UID: ${user?.uid}; '
+        'anonymous: ${user?.isAnonymous}',
+      );
+    }
     firebaseUser = user;
     // Old Municipal development sessions must never enter the real auth flow.
     if (user == null || user.isAnonymous) {
@@ -91,6 +98,12 @@ class AuthController extends ChangeNotifier {
       return;
     }
     profile = await _users.getById(user.uid);
+    if (kDebugMode) {
+      debugPrint(
+        '[AUTH DEBUG] AuthController profile UID: ${profile?.uid}; '
+        'role: ${profile?.role}',
+      );
+    }
     status = AuthStatus.authenticated;
     notifyListeners();
     await _fcm?.attachUser(user.uid);
@@ -181,7 +194,21 @@ class AuthController extends ChangeNotifier {
         );
       }
     }
-    await _users.updateLastLogin(user.uid);
+    try {
+      await _users.updateLastLogin(user.uid);
+    } on FirebaseException catch (error) {
+      if (error.code != 'permission-denied') rethrow;
+      // Legacy profiles without a stored uid can be read by their owner, but
+      // deployed rules reject updates. A denied audit timestamp must not reject
+      // valid authentication. Repair requires a trusted administrator; never
+      // rewrite identity/role fields here or suppress profile-read failures.
+      if (kDebugMode) {
+        debugPrint(
+          '[AUTH DEBUG] lastLogin update denied for users/${user.uid}; '
+          'continuing with the stored profile.',
+        );
+      }
+    }
     await _auth.reloadCurrentUser();
     _verificationFlowStarted = true;
   }

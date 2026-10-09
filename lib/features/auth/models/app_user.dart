@@ -90,7 +90,9 @@ class AppUser {
       name: data['name'] as String? ?? '',
       email: data['email'] as String? ?? '',
       phone: data['phone'] as String? ?? '',
-      role: data['role'] as String? ?? AppRoles.resident,
+      // Missing/malformed roles must reach AuthGate's unsupported-role state,
+      // rather than silently assigning the Resident interface.
+      role: data['role'] is String ? data['role'] as String : '',
       requestedRole: data['requestedRole'] as String?,
       addressZone: data['addressZone'] as String? ?? '',
       emailVerified: data['emailVerified'] as bool? ?? false,
@@ -108,6 +110,8 @@ class AppUser {
   /// Payload used only when **creating** a profile. Role is hard-coded
   /// to resident by [UserRepository.createResidentProfile].
   Map<String, dynamic> toCreateMap() => {
+        // Deployed owner-create rules require this to match users/{uid}.
+        'uid': uid,
         'name': name,
         'email': email,
         'phone': phone,

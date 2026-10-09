@@ -6,13 +6,16 @@ import '../navigation/app_routes.dart';
 import '../navigation/municipal_shell.dart';
 import '../services/municipal/municipal_analytics_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/common/authenticated_user_greeting.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MunicipalDashboardScreen
 // ─────────────────────────────────────────────────────────────────────────────
 
 class MunicipalDashboardScreen extends StatefulWidget {
-  const MunicipalDashboardScreen({super.key});
+  const MunicipalDashboardScreen({super.key, this.analyticsService});
+
+  final MunicipalAnalyticsService? analyticsService;
 
   @override
   State<MunicipalDashboardScreen> createState() =>
@@ -20,8 +23,8 @@ class MunicipalDashboardScreen extends StatefulWidget {
 }
 
 class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
-  final MunicipalAnalyticsService _analyticsService =
-      MunicipalAnalyticsService();
+  late final MunicipalAnalyticsService _analyticsService =
+      widget.analyticsService ?? MunicipalAnalyticsService();
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -81,13 +84,16 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Notification bell (left)
-          _IconBtn(icon: Icons.notifications_outlined, onTap: () {}),
+          _IconBtn(
+            icon: Icons.notifications_outlined,
+            onTap: () => Navigator.pushNamed(context, AppRoutes.notifications),
+          ),
           // CleanCycle branding (center)
-          const Expanded(
+          Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                const Text(
                   'CleanCycle',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -97,7 +103,7 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
                     letterSpacing: 0.4,
                   ),
                 ),
-                Text(
+                const Text(
                   'Municipal Operations',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -107,12 +113,16 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
                     letterSpacing: 0.3,
                   ),
                 ),
+                const SizedBox(height: 2),
+                const AuthenticatedUserGreeting(textAlign: TextAlign.center),
               ],
             ),
           ),
           // Profile (right)
-          _IconBtn(icon: Icons.account_circle_outlined,
-            onTap: () => Navigator.pushNamed(context, AppRoutes.profile)),
+          _IconBtn(
+            icon: Icons.account_circle_outlined,
+            onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+          ),
         ],
       ),
     );

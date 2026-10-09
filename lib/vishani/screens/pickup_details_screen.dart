@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../models/special_pickup_model.dart';
 import '../services/special_pickup_service.dart';
 import 'request_submitted_screen.dart';
+import 'package:provider/provider.dart';
+import '../../features/auth/presentation/auth_controller.dart';
 
 class PickupDetailsScreen extends StatefulWidget {
   final String selectedWasteType;
@@ -28,7 +30,7 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
   final SpecialPickupService _pickupService = SpecialPickupService();
   final ImagePicker _picker = ImagePicker();
 
-  String _address = 'No. 42, Galle Road, Colombo 03';
+  String _address = '';
   final TextEditingController _notesController = TextEditingController();
   final List<File> _selectedPhotos = [];
   final List<Uint8List> _selectedPhotosBytes = [];
@@ -51,9 +53,9 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking photo: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error picking photo: $e')));
       }
     }
   }
@@ -63,7 +65,10 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Change Pickup Address', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Change Pickup Address',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: TextField(
           controller: addrController,
           maxLines: 2,
@@ -84,8 +89,13 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
                 Navigator.pop(ctx);
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
-            child: const Text('Save Address', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+            ),
+            child: const Text(
+              'Save Address',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -98,16 +108,21 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      final uid = context.read<AuthController>().firebaseUser?.uid;
+      if (uid == null) throw StateError('Please sign in first.');
+      if (_address.trim().isEmpty) {
+        throw StateError('Enter your pickup address.');
+      }
       final newPickup = SpecialPickupModel(
         requestId: '',
-        userId: 'user_default',
+        userId: uid,
         wasteType: widget.selectedWasteType,
         scheduledDate: widget.scheduledDate,
         timeSlot: widget.timeSlot,
         address: _address,
         notes: _notesController.text.trim(),
         createdAt: DateTime.now(),
-        status: 'Assigned',
+        status: 'Pending',
       );
 
       final requestId = await _pickupService.createPickupRequest(
@@ -125,9 +140,9 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Submission error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Submission error: $e')));
       }
     } finally {
       if (mounted) {
@@ -190,12 +205,18 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 '${DateFormat('MMM d').format(widget.scheduledDate)} • ${widget.timeSlot}',
-                                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade600,
+                                ),
                               ),
                             ],
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFE8F5E9),
                               borderRadius: BorderRadius.circular(10),
@@ -233,12 +254,18 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.location_on, color: Color(0xFF2E7D32)),
+                          const Icon(
+                            Icons.location_on,
+                            color: Color(0xFF2E7D32),
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               _address,
-                              style: const TextStyle(fontSize: 14, color: Color(0xFF1B3B2B)),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF1B3B2B),
+                              ),
                             ),
                           ),
                           TextButton(
@@ -270,8 +297,12 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
                       controller: _notesController,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        hintText: 'e.g., item size, quantity, pickup location details (Landmark, gate, etc.)',
-                        hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                        hintText:
+                            'e.g., item size, quantity, pickup location details (Landmark, gate, etc.)',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade400,
+                        ),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
@@ -347,7 +378,11 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
                                           color: Colors.black54,
                                           shape: BoxShape.circle,
                                         ),
-                                        child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                        child: const Icon(
+                                          Icons.close,
+                                          color: Colors.white,
+                                          size: 14,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -366,15 +401,23 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
                                 child: Wrap(
                                   children: [
                                     ListTile(
-                                      leading: const Icon(Icons.camera_alt, color: Color(0xFF2E7D32)),
-                                      title: const Text('Take Photo with Camera'),
+                                      leading: const Icon(
+                                        Icons.camera_alt,
+                                        color: Color(0xFF2E7D32),
+                                      ),
+                                      title: const Text(
+                                        'Take Photo with Camera',
+                                      ),
                                       onTap: () {
                                         Navigator.pop(ctx);
                                         _pickPhoto(ImageSource.camera);
                                       },
                                     ),
                                     ListTile(
-                                      leading: const Icon(Icons.photo_library, color: Color(0xFF2E7D32)),
+                                      leading: const Icon(
+                                        Icons.photo_library,
+                                        color: Color(0xFF2E7D32),
+                                      ),
                                       title: const Text('Pick from Gallery'),
                                       onTap: () {
                                         Navigator.pop(ctx);
@@ -396,14 +439,16 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
                               border: Border.all(color: Colors.grey.shade300),
                             ),
                             child: const Center(
-                              child: Icon(Icons.add, color: Colors.grey, size: 30),
+                              child: Icon(
+                                Icons.add,
+                                color: Colors.grey,
+                                size: 30,
+                              ),
                             ),
                           ),
                         ),
                       ],
                     ),
-
-
                   ],
                 ),
               ),
@@ -438,7 +483,10 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
                     ? const SizedBox(
                         height: 22,
                         width: 22,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text(
                         'Submit Request',

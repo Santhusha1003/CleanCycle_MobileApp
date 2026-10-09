@@ -24,6 +24,53 @@ class _Reads extends FirestoreService {
 }
 
 void main() {
+  test(
+    'Vehicle performance counts only today completed assigned schedules',
+    () async {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      Map<String, dynamic> record(
+        Object? date,
+        Object? vehicle,
+        String status,
+      ) => {
+        'collectionDate': date,
+        'assignedVehicleId': vehicle,
+        'status': status,
+        'assignedDriverId': 'driver-with-no-route-history',
+      };
+      final summary = await MunicipalAnalyticsService(
+        firestoreService: _Reads({
+          'schedules': [
+            record(today, ' VEH-1 ', 'completed'),
+            record(Timestamp.fromDate(today), 'VEH-1', ' COMPLETED '),
+            record(today.toIso8601String(), 'VEH-2', 'completed'),
+            record(today, null, 'completed'),
+            record(today, '', 'completed'),
+            record(today, 99, 'completed'),
+            record(today, 'VEH-1', 'scheduled'),
+            record(today, 'VEH-1', 'in_progress'),
+            record(today, 'VEH-1', 'cancelled'),
+            record(
+              today.subtract(const Duration(days: 1)),
+              'VEH-1',
+              'completed',
+            ),
+            record(today.add(const Duration(days: 1)), 'VEH-1', 'completed'),
+            record('invalid', 'VEH-1', 'completed'),
+          ],
+        }),
+      ).getMunicipalAnalyticsSummary();
+      expect(summary.completedCollectionsByVehicleToday, {
+        'VEH-1': 2,
+        'VEH-2': 1,
+      });
+      expect(
+        () => summary.completedCollectionsByVehicleToday['new'] = 1,
+        throwsUnsupportedError,
+      );
+    },
+  );
   test('Empty collections produce zero counts and empty grouping', () async {
     final summary = await MunicipalAnalyticsService(
       firestoreService: _Reads({}),
@@ -45,6 +92,7 @@ void main() {
     ], everyElement(0));
     expect(summary.collectionsByWasteType.values, everyElement(0));
     expect(summary.collectionsByZone, isEmpty);
+    expect(summary.completedCollectionsByVehicleToday, isEmpty);
   });
 
   test('Legacy records need no CRUD identifiers or audit timestamps', () async {

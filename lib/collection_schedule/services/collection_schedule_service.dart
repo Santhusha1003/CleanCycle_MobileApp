@@ -1,11 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/collection_schedule.dart';
 
 class CollectionScheduleService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  CollectionScheduleService({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _firestore;
 
   // Firestore collection name
-  final String _collectionName = 'schedules';
+  // Residents read the safe projection only. Municipal assignments and trip
+  // identifiers remain in the restricted `schedules` collection.
+  static const String collectionName = 'resident_schedules';
+  final String _collectionName = collectionName;
 
   // =========================
   // CREATE
@@ -29,9 +36,20 @@ class CollectionScheduleService {
 
   Stream<List<CollectionSchedule>> getSchedules() {
     return _firestore.collection(_collectionName).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return CollectionSchedule.fromMap(doc.id, doc.data());
-      }).toList();
+      final schedules = <CollectionSchedule>[];
+      for (final doc in snapshot.docs) {
+        try {
+          schedules.add(CollectionSchedule.fromMap(doc.id, doc.data()));
+        } on FormatException catch (error) {
+          if (kDebugMode) {
+            debugPrint(
+              'CollectionScheduleService: excluding invalid schedule '
+              '${doc.id}: ${error.message}',
+            );
+          }
+        }
+      }
+      return schedules;
     });
   }
 

@@ -4,12 +4,12 @@ import 'base_model.dart';
 
 /// Represents a municipal waste collection driver stored in the `drivers` collection.
 ///
-/// The Firestore document ID is the driver identifier, which may correspond to a
-/// Firebase Auth UID when available, or to a stable generated ID if not yet
-/// provided by the authentication layer.
+/// [driverId] is a municipal record identifier and is never assumed to equal
+/// Firebase Auth. [authUid] is an independently verified account mapping.
 class Driver implements BaseModel {
   Driver({
     required this.driverId,
+    this.authUid,
     required this.fullName,
     required this.email,
     required this.phoneNumber,
@@ -23,6 +23,10 @@ class Driver implements BaseModel {
   });
 
   final String driverId;
+
+  /// Firebase Auth identity linked from a verified `users` profile by email.
+  /// This is intentionally distinct from the municipal [driverId].
+  final String? authUid;
   final String fullName;
   final String email;
   final String phoneNumber;
@@ -86,6 +90,7 @@ class Driver implements BaseModel {
   Map<String, dynamic> toMap() {
     return {
       'driverId': driverId,
+      if (authUid != null && authUid!.isNotEmpty) 'authUid': authUid,
       'fullName': fullName,
       'email': email,
       'phoneNumber': phoneNumber,
@@ -113,6 +118,7 @@ class Driver implements BaseModel {
 
     return Driver(
       driverId: driverId,
+      authUid: ModelMapHelper.nullableValue<String>(map, 'authUid'),
       fullName: fullName,
       email: email,
       phoneNumber: phoneNumber,

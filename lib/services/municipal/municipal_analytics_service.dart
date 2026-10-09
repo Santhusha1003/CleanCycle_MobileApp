@@ -21,6 +21,7 @@ class MunicipalAnalyticsSummary {
     required this.cancelledToday,
     required this.collectionsByWasteType,
     required this.collectionsByZone,
+    this.completedCollectionsByVehicleToday = const {},
   });
 
   final int totalVehicles;
@@ -38,6 +39,8 @@ class MunicipalAnalyticsSummary {
   final int cancelledToday;
   final Map<String, int> collectionsByWasteType;
   final Map<String, int> collectionsByZone;
+  // Completed schedules assigned to a vehicle, not independently recorded trips.
+  final Map<String, int> completedCollectionsByVehicleToday;
 }
 
 class MunicipalAnalyticsService {
@@ -178,6 +181,18 @@ class MunicipalAnalyticsService {
         collectionsByZone[zoneKey] = (collectionsByZone[zoneKey] ?? 0) + 1;
       }
 
+      final completedCollectionsByVehicleToday = <String, int>{};
+      for (final schedule in todaysSchedules) {
+        if (_text(schedule['status']).toLowerCase() != 'completed') continue;
+        final vehicleId = _text(schedule['assignedVehicleId']);
+        if (vehicleId.isEmpty) continue;
+        completedCollectionsByVehicleToday.update(
+          vehicleId,
+          (collectionCount) => collectionCount + 1,
+          ifAbsent: () => 1,
+        );
+      }
+
       return MunicipalAnalyticsSummary(
         totalVehicles: totalVehicles,
         availableVehicles: availableVehicles,
@@ -194,6 +209,9 @@ class MunicipalAnalyticsService {
         cancelledToday: cancelledToday,
         collectionsByWasteType: collectionsByWasteType,
         collectionsByZone: collectionsByZone,
+        completedCollectionsByVehicleToday: Map.unmodifiable(
+          completedCollectionsByVehicleToday,
+        ),
       );
     } catch (exception, stackTrace) {
       if (kDebugMode) {

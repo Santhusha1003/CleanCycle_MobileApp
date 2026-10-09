@@ -5,6 +5,7 @@ import '../../theme/app_colors.dart';
 class AppStatusCard extends StatelessWidget {
   final String statusText;
   final Color? color;
+  final Color? textColor;
   final EdgeInsetsGeometry? padding;
   final double? borderRadius;
 
@@ -12,6 +13,7 @@ class AppStatusCard extends StatelessWidget {
     Key? key,
     required this.statusText,
     this.color,
+    this.textColor,
     this.padding,
     this.borderRadius,
   }) : super(key: key);
@@ -19,7 +21,7 @@ class AppStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = (color ?? AppColors.greenSurface);
-    final textColor = AppColors.textPrimary;
+    final foreground = textColor ?? AppColors.textPrimary;
 
     return Container(
       padding:
@@ -32,7 +34,7 @@ class AppStatusCard extends StatelessWidget {
       child: Text(
         statusText,
         style: TextStyle(
-          color: textColor,
+          color: foreground,
           fontWeight: FontWeight.w600,
           fontSize: 13,
         ),

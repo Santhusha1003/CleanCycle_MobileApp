@@ -4,6 +4,8 @@ import '../models/special_pickup_model.dart';
 import '../services/special_pickup_service.dart';
 import 'select_waste_type_screen.dart';
 import 'request_submitted_screen.dart';
+import 'package:provider/provider.dart';
+import '../../features/auth/presentation/auth_controller.dart';
 
 class SpecialPickupScreen extends StatefulWidget {
   final bool isEmbedded;
@@ -37,6 +39,7 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final uid = context.watch<AuthController>().firebaseUser?.uid;
     return Scaffold(
       backgroundColor: const Color(0xFFF7FAF8),
       appBar: widget.isEmbedded
@@ -71,7 +74,11 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Center(
-                      child: Icon(Icons.local_shipping, color: Color(0xFF2E7D32), size: 64),
+                      child: Icon(
+                        Icons.local_shipping,
+                        color: Color(0xFF2E7D32),
+                        size: 64,
+                      ),
                     ),
                   ),
                 ),
@@ -144,7 +151,9 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFE8F5E9),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFA5D6A7).withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: const Color(0xFFA5D6A7).withValues(alpha: 0.5),
+                ),
               ),
               child: Row(
                 children: [
@@ -154,7 +163,11 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
                       color: Colors.white,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.eco, color: Color(0xFF2E7D32), size: 20),
+                    child: const Icon(
+                      Icons.eco,
+                      color: Color(0xFF2E7D32),
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -185,14 +198,21 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8F5E9),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text(
                     'Active Bookings',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32)),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2E7D32),
+                    ),
                   ),
                 ),
               ],
@@ -200,13 +220,26 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
             const SizedBox(height: 12),
 
             StreamBuilder<List<SpecialPickupModel>>(
-              stream: _pickupService.getUserPickupsStream('user_default'),
+              key: ValueKey(uid),
+              stream: uid == null
+                  ? Stream.value(<SpecialPickupModel>[])
+                  : _pickupService.getUserPickupsStream(uid),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Unable to load your requests. Check your account access or connection.',
+                    ),
+                  );
+                }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(24.0),
-                      child: CircularProgressIndicator(color: Color(0xFF2E7D32)),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF2E7D32),
+                      ),
                     ),
                   );
                 }
@@ -223,17 +256,28 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
                     ),
                     child: Column(
                       children: [
-                        Icon(Icons.inventory_2_outlined, size: 40, color: Colors.grey.shade400),
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          size: 40,
+                          color: Colors.grey.shade400,
+                        ),
                         const SizedBox(height: 10),
                         const Text(
                           'No Special Pickups Booked Yet',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1B3B2B)),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1B3B2B),
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           'Tap "Book New Pickup Request" above to schedule a collection for bulky furniture, appliances, or debris.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ],
                     ),
@@ -273,13 +317,22 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
               ),
               child: Column(
                 children: [
-                  _buildFeatureRow(Icons.chair_outlined, 'Furniture & Mattresses'),
+                  _buildFeatureRow(
+                    Icons.chair_outlined,
+                    'Furniture & Mattresses',
+                  ),
                   const Divider(height: 14),
-                  _buildFeatureRow(Icons.devices_other_outlined, 'E-Waste & Appliances'),
+                  _buildFeatureRow(
+                    Icons.devices_other_outlined,
+                    'E-Waste & Appliances',
+                  ),
                   const Divider(height: 14),
                   _buildFeatureRow(Icons.yard_outlined, 'Garden & Yard Waste'),
                   const Divider(height: 14),
-                  _buildFeatureRow(Icons.construction_outlined, 'Light Renovation Debris'),
+                  _buildFeatureRow(
+                    Icons.construction_outlined,
+                    'Light Renovation Debris',
+                  ),
                 ],
               ),
             ),
@@ -312,7 +365,8 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => RequestSubmittedScreen(requestId: pickup.requestId),
+                builder: (_) =>
+                    RequestSubmittedScreen(requestId: pickup.requestId),
               ),
             );
           },
@@ -330,7 +384,11 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
                         color: const Color(0xFFE8F5E9),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(_getCategoryIcon(pickup.wasteType), color: const Color(0xFF2E7D32), size: 22),
+                      child: Icon(
+                        _getCategoryIcon(pickup.wasteType),
+                        color: const Color(0xFF2E7D32),
+                        size: 22,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -357,7 +415,10 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: pickup.status == 'Assigned'
                             ? const Color(0xFFE8F5E9)
@@ -376,7 +437,11 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
                   ],
                 ),
                 const Divider(height: 20),
@@ -384,18 +449,32 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
                 // Details Rows
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today_outlined, size: 15, color: Colors.grey),
+                    const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 15,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 6),
                     Text(
-                      DateFormat('EEE, MMM d, yyyy').format(pickup.scheduledDate),
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1B3B2B)),
+                      DateFormat(
+                        'EEE, MMM d, yyyy',
+                      ).format(pickup.scheduledDate),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1B3B2B),
+                      ),
                     ),
                     const SizedBox(width: 14),
                     const Icon(Icons.access_time, size: 15, color: Colors.grey),
                     const SizedBox(width: 6),
                     Text(
                       pickup.timeSlot,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1B3B2B)),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1B3B2B),
+                      ),
                     ),
                   ],
                 ),
@@ -403,12 +482,19 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.location_on_outlined, size: 15, color: Colors.grey),
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 15,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         pickup.address,
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

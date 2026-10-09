@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
 
 import '../models/driver.dart';
+import 'driver_details_screen.dart';
 import '../services/municipal/driver_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/common/app_card.dart';
 import '../widgets/common/app_primary_button.dart';
+import '../widgets/common/municipal_add_button.dart';
 import '../widgets/common/app_search_field.dart';
 import '../widgets/common/app_secondary_button.dart';
+import '../widgets/common/municipal_crud_actions.dart';
 import '../widgets/common/app_status_card.dart';
 import '../widgets/common/app_text_field.dart';
 
 class DriverManagementScreen extends StatefulWidget {
-  const DriverManagementScreen({super.key});
+  const DriverManagementScreen({super.key, this.driverService});
+
+  final DriverService? driverService;
 
   @override
   State<DriverManagementScreen> createState() => _DriverManagementScreenState();
 }
 
 class _DriverManagementScreenState extends State<DriverManagementScreen> {
-  final DriverService _driverService = DriverService();
+  late final DriverService _driverService =
+      widget.driverService ?? DriverService();
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
@@ -385,6 +391,30 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
     }
   }
 
+  void _showDriverDetail(Driver driver) {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DriverDetailsScreen(
+          driver: driver,
+          onEdit: (record) async {
+            await _showDriverForm(driver: record);
+            if (!mounted) return null;
+            final matches = _drivers.where(
+              (item) => item.driverId == record.driverId,
+            );
+            return matches.isEmpty ? null : matches.first;
+          },
+          onDelete: (record) async {
+            await _confirmDelete(record);
+            return mounted &&
+                !_drivers.any((item) => item.driverId == record.driverId);
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmDelete(Driver driver) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -476,7 +506,7 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                 onClear: () => _onSearchChanged(''),
               ),
               const SizedBox(height: 16),
-              AppPrimaryButton(
+              MunicipalAddButton(
                 label: 'Add Driver',
                 onPressed: () => _showDriverForm(),
               ),
@@ -569,6 +599,7 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                       final driver = _filteredDrivers[index];
 
                       return AppCard(
+                        onTap: () => _showDriverDetail(driver),
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -611,23 +642,12 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                                 _formatDate(driver.licenseExpiryDate!),
                               ),
                             const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: AppSecondaryButton(
-                                    label: 'Edit',
-                                    onPressed: () =>
-                                        _showDriverForm(driver: driver),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: AppSecondaryButton(
-                                    label: 'Delete',
-                                    onPressed: () => _confirmDelete(driver),
-                                  ),
-                                ),
-                              ],
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: MunicipalCrudActions(
+                                onEdit: () => _showDriverForm(driver: driver),
+                                onDelete: () => _confirmDelete(driver),
+                              ),
                             ),
                           ],
                         ),

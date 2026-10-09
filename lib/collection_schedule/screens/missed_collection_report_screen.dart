@@ -5,7 +5,14 @@ import '../services/collection_schedule_service.dart';
 import '../services/missed_collection_report_service.dart';
 
 class MissedCollectionReportScreen extends StatefulWidget {
-  const MissedCollectionReportScreen({super.key});
+  const MissedCollectionReportScreen({
+    super.key,
+    this.scheduleService,
+    this.reportService,
+  });
+
+  final CollectionScheduleService? scheduleService;
+  final MissedCollectionReportService? reportService;
 
   @override
   State<MissedCollectionReportScreen> createState() =>
@@ -14,11 +21,11 @@ class MissedCollectionReportScreen extends StatefulWidget {
 
 class _MissedCollectionReportScreenState
     extends State<MissedCollectionReportScreen> {
-  final CollectionScheduleService _scheduleService =
-      CollectionScheduleService();
+  late final CollectionScheduleService _scheduleService =
+      widget.scheduleService ?? CollectionScheduleService();
 
-  final MissedCollectionReportService _reportService =
-      MissedCollectionReportService();
+  late final MissedCollectionReportService _reportService =
+      widget.reportService ?? MissedCollectionReportService();
 
   final _formKey = GlobalKey<FormState>();
 
@@ -260,7 +267,6 @@ class _MissedCollectionReportScreenState
                   // =============================================
                   // INFORMATION CARD
                   // =============================================
-
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),

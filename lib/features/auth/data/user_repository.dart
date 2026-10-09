@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/app_roles.dart';
 import '../../../core/utils/error_mapper.dart';
@@ -60,6 +61,7 @@ class UserRepository {
       email: authUser.email ?? '',
       phone: authUser.phoneNumber ?? '',
       role: AppRoles.resident,
+      requestedRole: AppRoles.resident,
       addressZone: '',
       emailVerified: authUser.emailVerified,
       createdAt: DateTime.now(),
@@ -71,8 +73,21 @@ class UserRepository {
   /// READ: single profile, or null if the document is missing.
   Future<AppUser?> getById(String uid) async {
     final snap = await _doc(uid).get();
+    // TEMPORARY runtime diagnostics; never log credentials or tokens.
+    if (kDebugMode) {
+      debugPrint(
+        '[AUTH DEBUG] Profile path: users/$uid; exists: ${snap.exists}; '
+        'fromCache: ${snap.metadata.isFromCache}; '
+        'Firestore role: ${snap.data()?['role']}; '
+        'requestedRole: ${snap.data()?['requestedRole']}',
+      );
+    }
     if (!snap.exists) return null;
-    return AppUser.fromFirestore(snap);
+    final user = AppUser.fromFirestore(snap);
+    if (kDebugMode) {
+      debugPrint('[AUTH DEBUG] AppUser role: "${user.role}"');
+    }
+    return user;
   }
 
   /// READ (live): used by Account Settings so edits appear immediately.

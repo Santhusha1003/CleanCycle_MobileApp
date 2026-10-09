@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../models/vehicle.dart';
+import 'vehicle_details_screen.dart';
 import '../services/municipal/vehicle_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/common/app_card.dart';
 import '../widgets/common/app_primary_button.dart';
+import '../widgets/common/municipal_add_button.dart';
 import '../widgets/common/app_search_field.dart';
 import '../widgets/common/app_secondary_button.dart';
+import '../widgets/common/municipal_crud_actions.dart';
 import '../widgets/common/app_status_card.dart';
 import '../widgets/common/app_text_field.dart';
 
 class VehicleManagementScreen extends StatefulWidget {
-  const VehicleManagementScreen({super.key});
+  const VehicleManagementScreen({super.key, this.vehicleService});
+
+  final VehicleService? vehicleService;
 
   @override
   State<VehicleManagementScreen> createState() =>
@@ -19,7 +24,8 @@ class VehicleManagementScreen extends StatefulWidget {
 }
 
 class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
-  final VehicleService _vehicleService = VehicleService();
+  late final VehicleService _vehicleService =
+      widget.vehicleService ?? VehicleService();
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
@@ -417,6 +423,33 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
     }
   }
 
+  void _showVehicleDetail(Vehicle vehicle) {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VehicleDetailsScreen(
+          vehicle: vehicle,
+          onEdit: (record) async {
+            await _showVehicleForm(vehicle: record);
+            if (!mounted) return null;
+            final matches = _vehicles.where(
+              (item) => item.registrationNumber == record.registrationNumber,
+            );
+            return matches.isEmpty ? null : matches.first;
+          },
+          onDelete: (record) async {
+            await _confirmDelete(record);
+            return mounted &&
+                !_vehicles.any(
+                  (item) =>
+                      item.registrationNumber == record.registrationNumber,
+                );
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmDelete(Vehicle vehicle) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -523,7 +556,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: AppPrimaryButton(
+                    child: MunicipalAddButton(
                       label: 'Add Vehicle',
                       onPressed: () => _showVehicleForm(),
                     ),
@@ -618,6 +651,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                     itemBuilder: (context, index) {
                       final vehicle = _filteredVehicles[index];
                       return AppCard(
+                        onTap: () => _showVehicleDetail(vehicle),
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -672,23 +706,13 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                               ],
                             ),
                             const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: AppSecondaryButton(
-                                    label: 'Edit',
-                                    onPressed: () =>
-                                        _showVehicleForm(vehicle: vehicle),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: AppSecondaryButton(
-                                    label: 'Delete',
-                                    onPressed: () => _confirmDelete(vehicle),
-                                  ),
-                                ),
-                              ],
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: MunicipalCrudActions(
+                                onEdit: () =>
+                                    _showVehicleForm(vehicle: vehicle),
+                                onDelete: () => _confirmDelete(vehicle),
+                              ),
                             ),
                           ],
                         ),

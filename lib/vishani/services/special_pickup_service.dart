@@ -1,201 +1,128 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/special_pickup_model.dart';
 import 'storage_service.dart';
 
+/// Real resident-owned requests only. Firestore remains the authorization layer;
+/// failed writes propagate instead of being reported as successful demo bookings.
 class SpecialPickupService {
-  final FirebaseFirestore? _firestore;
-  final StorageService _storageService;
-
   SpecialPickupService({
     FirebaseFirestore? firestore,
     StorageService? storageService,
-  })  : _firestore = firestore,
-        _storageService = storageService ?? StorageService();
-
-  FirebaseFirestore get _instance {
-    if (_firestore != null) return _firestore;
-    return FirebaseFirestore.instance;
+    String? Function()? authenticatedUid,
+  }) : _firestore = firestore,
+       _storageService = storageService ?? StorageService(),
+       _authenticatedUid =
+           authenticatedUid ?? (() => FirebaseAuth.instance.currentUser?.uid);
+  final FirebaseFirestore? _firestore;
+  final StorageService _storageService;
+  final String? Function() _authenticatedUid;
+  FirebaseFirestore get _instance => _firestore ?? FirebaseFirestore.instance;
+  String _uid() {
+    final uid = _authenticatedUid();
+    if (uid == null || uid.isEmpty) {
+      throw StateError('Sign in to access your requests.');
+    }
+    return uid;
   }
 
-  bool get _isFirebaseAvailable {
-    try {
-      return Firebase.apps.isNotEmpty;
-    } catch (_) {
-      return false;
+  DocumentReference<Map<String, dynamic>> _ref(String id) {
+    if (id.isEmpty || id.contains('/')) {
+      throw ArgumentError('Invalid request ID.');
     }
+    return _instance.collection('special_pickups').doc(id);
   }
 
-  // In-memory fallback cache for local testing / offline demo
-  static final List<SpecialPickupModel> _mockPickups = [
-    SpecialPickupModel(
-      requestId: 'SP-20260814-002',
-      userId: 'user_default',
-      wasteType: 'Furniture',
-      scheduledDate: DateTime.now().add(const Duration(days: 2)),
-      timeSlot: '10-12 PM',
-      address: 'No. 42, Galle Road, Colombo 03',
-      notes: 'Old wooden sofa set and broken study table. Please call on arrival.',
-      photoUrls: [
-        'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=600&q=80',
-      ],
-      status: 'Assigned',
-      createdAt: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-  ];
-
-  /// [CREATE] Book a new Special Bulky Waste Pickup Request
-  Future<String> createPickupRequest(SpecialPickupModel pickup, List<File> photos) async {
-    final id = pickup.requestId.isEmpty
-        ? 'SP-${DateTime.now().year}${DateTime.now().month.toString().padLeft(2, '0')}${DateTime.now().day.toString().padLeft(2, '0')}-${DateTime.now().millisecond.toString().padLeft(3, '0')}'
-        : pickup.requestId;
-
-    List<String> photoUrls = List.from(pickup.photoUrls);
-    if (photos.isNotEmpty) {
-      final uploadedUrls = await _storageService.uploadSpecialPickupPhotos(photos, id);
-      photoUrls.addAll(uploadedUrls);
+  Future<DocumentReference<Map<String, dynamic>>> _owned(String id) async {
+    final uid = _uid();
+    final ref = _ref(id);
+    final snapshot = await ref.get();
+    if (snapshot.data()?['userId'] != uid) {
+      throw StateError('Request does not belong to this account.');
     }
-
-    final newPickup = pickup.copyWith(
-      requestId: id,
-      photoUrls: photoUrls,
-    );
-
-    _mockPickups.insert(0, newPickup);
-
-    if (_isFirebaseAvailable) {
-      try {
-        await _instance.collection('special_pickups').doc(id).set(newPickup.toMap());
-        debugPrint('Special pickup request successfully saved to Firestore: $id');
-      } catch (e) {
-        debugPrint('Firestore save error for special pickup: $e');
-      }
-    }
-    return id;
+    if (_uid() != uid) throw StateError('Account changed.');
+    return ref;
   }
 
-  /// [READ] Stream a single pickup booking (used for receipts & status timelines)
-  Stream<SpecialPickupModel?> getPickupStream(String requestId) {
-    if (!_isFirebaseAvailable) {
-      final match = _mockPickups.where((p) => p.requestId == requestId);
-      return Stream.value(match.isNotEmpty ? match.first : null);
-    }
-
-    try {
-      return _instance
-          .collection('special_pickups')
-          .doc(requestId)
-          .snapshots()
-          .map((doc) {
-        if (doc.exists) {
-          return SpecialPickupModel.fromFirestore(doc);
-        }
-        final match = _mockPickups.where((p) => p.requestId == requestId);
-        return match.isNotEmpty ? match.first : null;
-      });
-    } catch (_) {
-      final match = _mockPickups.where((p) => p.requestId == requestId);
-      return Stream.value(match.isNotEmpty ? match.first : null);
-    }
-  }
-
-  /// [READ] Stream all special pickup bookings for a citizen
-  Stream<List<SpecialPickupModel>> getUserPickupsStream(String userId) {
-    if (!_isFirebaseAvailable) {
-      return Stream.value(List.from(_mockPickups));
-    }
-
-    try {
-      return _instance
-          .collection('special_pickups')
-          .where('userId', isEqualTo: userId)
-          .snapshots()
-          .map((snapshot) {
-        if (snapshot.docs.isNotEmpty) {
-          return snapshot.docs.map((doc) => SpecialPickupModel.fromFirestore(doc)).toList();
-        }
-        return List<SpecialPickupModel>.from(_mockPickups);
-      });
-    } catch (_) {
-      return Stream.value(List.from(_mockPickups));
-    }
-  }
-
-  /// [UPDATE] Reschedule pickup date and time window
-  Future<void> reschedulePickup(String requestId, DateTime newDate, String newSlot) async {
-    final index = _mockPickups.indexWhere((p) => p.requestId == requestId);
-    if (index != -1) {
-      _mockPickups[index] = _mockPickups[index].copyWith(
-        scheduledDate: newDate,
-        timeSlot: newSlot,
+  Future<String> createPickupRequest(
+    SpecialPickupModel pickup,
+    List<File> photos,
+  ) async {
+    final uid = _uid();
+    if (pickup.userId != uid ||
+        pickup.status.toLowerCase() != 'pending' ||
+        pickup.assignedDriverUid != null ||
+        pickup.assignedDriverId != null ||
+        pickup.assignedVehicleId != null) {
+      throw StateError(
+        'New requests must belong to you and await administrator assignment.',
       );
     }
-
-    if (_isFirebaseAvailable) {
-      try {
-        await _instance.collection('special_pickups').doc(requestId).update({
-          'scheduledDate': Timestamp.fromDate(newDate),
-          'timeSlot': newSlot,
-        });
-        debugPrint('Pickup rescheduled in Firestore: $requestId');
-      } catch (e) {
-        debugPrint('Firestore update error on reschedule: $e');
-      }
+    final ref = pickup.requestId.isEmpty
+        ? _instance.collection('special_pickups').doc()
+        : _ref(pickup.requestId);
+    final urls = [...pickup.photoUrls];
+    if (photos.isNotEmpty) {
+      urls.addAll(
+        await _storageService.uploadSpecialPickupPhotos(photos, ref.id),
+      );
     }
+    if (_uid() != uid) throw StateError('Account changed.');
+    await ref.set(pickup.copyWith(requestId: ref.id, photoUrls: urls).toMap());
+    return ref.id;
   }
 
-  /// [UPDATE] Update pickup instructions or notes
-  Future<void> updatePickupNotes(String requestId, String newNotes) async {
-    final index = _mockPickups.indexWhere((p) => p.requestId == requestId);
-    if (index != -1) {
-      _mockPickups[index] = _mockPickups[index].copyWith(notes: newNotes);
-    }
-
-    if (_isFirebaseAvailable) {
-      try {
-        await _instance.collection('special_pickups').doc(requestId).update({
-          'notes': newNotes,
-        });
-      } catch (e) {
-        debugPrint('Firestore update error on notes: $e');
+  Stream<SpecialPickupModel?> getPickupStream(String requestId) {
+    final uid = _uid();
+    return _ref(requestId).snapshots().map((doc) {
+      if (_uid() != uid) throw StateError('Account changed.');
+      if (!doc.exists) return null;
+      final pickup = SpecialPickupModel.fromFirestore(doc);
+      if (pickup.userId != uid) {
+        throw StateError('Request does not belong to this account.');
       }
-    }
+      return pickup;
+    });
   }
 
-  /// [DELETE] Cancel / Withdraw a pickup request
-  Future<void> cancelPickup(String requestId) async {
-    _mockPickups.removeWhere((p) => p.requestId == requestId);
-
-    if (_isFirebaseAvailable) {
-      try {
-        await _instance.collection('special_pickups').doc(requestId).delete();
-        debugPrint('Pickup deleted from Firestore: $requestId');
-      } catch (e) {
-        debugPrint('Firestore delete error: $e');
-      }
+  Stream<List<SpecialPickupModel>> getUserPickupsStream(String userId) {
+    if (_uid() != userId) {
+      return Stream.error(StateError('Request owner must match your account.'));
     }
+    return _instance
+        .collection('special_pickups')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+          if (_uid() != userId) throw StateError('Account changed.');
+          return snapshot.docs
+              .map(SpecialPickupModel.fromFirestore)
+              .where((row) => row.userId == userId)
+              .toList();
+        });
   }
 
-  /// [DELETE] Alias matching project architecture documentation
-  Future<void> cancelPickupRequest(String requestId) => cancelPickup(requestId);
+  Future<void> reschedulePickup(String id, DateTime date, String slot) async {
+    await (await _owned(
+      id,
+    )).update({'scheduledDate': Timestamp.fromDate(date), 'timeSlot': slot});
+  }
 
-  /// [UPDATE] Update pickup status (e.g. Scheduled, In Progress, Cancelled)
-  Future<void> updatePickupStatus(String requestId, String newStatus) async {
-    final index = _mockPickups.indexWhere((p) => p.requestId == requestId);
-    if (index != -1) {
-      _mockPickups[index] = _mockPickups[index].copyWith(status: newStatus);
-    }
+  Future<void> updatePickupNotes(String id, String notes) async {
+    await (await _owned(id)).update({'notes': notes});
+  }
 
-    if (_isFirebaseAvailable) {
-      try {
-        await _instance.collection('special_pickups').doc(requestId).update({
-          'status': newStatus,
-        });
-      } catch (e) {
-        debugPrint('Firestore update error on status: $e');
-      }
+  Future<void> cancelPickup(String id) async {
+    await (await _owned(id)).delete();
+  }
+
+  Future<void> cancelPickupRequest(String id) => cancelPickup(id);
+  Future<void> updatePickupStatus(String id, String status) async {
+    // Assignment/approval is not an owner action. Rules enforce this too.
+    if (status.toLowerCase() != 'cancelled') {
+      throw StateError('Status changes require an administrator.');
     }
+    await (await _owned(id)).update({'status': status});
   }
 }

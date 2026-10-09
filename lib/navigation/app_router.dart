@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
-import '../screens/driver_dashboard_screen.dart';
+import '../vishani/screens/tracking_dashboard_screen.dart';
+import '../vishani/screens/driver_profile_screen.dart';
 import '../features/auth/presentation/screens/auth_gate.dart';
 import '../features/auth/presentation/screens/create_account_screen.dart';
 import '../features/auth/presentation/auth_controller.dart';
@@ -41,6 +43,9 @@ class AppRouter {
   /// **Role-based access control is enforced here.**
   /// If a user lacks permission for a route, navigation is redirected.
   static Route<dynamic> generateRoute(RouteSettings settings) {
+    if (kDebugMode) {
+      debugPrint('[AUTH DEBUG] AppRouter requested route: ${settings.name}');
+    }
     switch (settings.name) {
       // Common routes
       case AppRoutes.splash:
@@ -123,7 +128,7 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (context) => const _AuthenticatedRoute(
             role: AppRoles.driver,
-            child: DriverDashboardScreen(),
+            child: TrackingDashboardScreen(),
           ),
           settings: settings,
         );
@@ -134,8 +139,8 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (context) => const _AuthenticatedRoute(
             role: AppRoles.driver,
-            child: DriverDashboardScreen(),
-          ), // Placeholder
+            child: TrackingDashboardScreen(),
+          ),
           settings: settings,
         );
 
@@ -170,10 +175,17 @@ class AppRouter {
       // Existing Member 01 profile and notification settings.
       case AppRoutes.profile:
       case AppRoutes.settings:
-      case AppRoutes.driverProfile:
         return MaterialPageRoute(
           builder: (context) =>
               const _AuthenticatedRoute(child: AccountSettingsScreen()),
+          settings: settings,
+        );
+      case AppRoutes.driverProfile:
+        return MaterialPageRoute(
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.driver,
+            child: DriverProfileScreen(),
+          ),
           settings: settings,
         );
       case AppRoutes.notifications:
@@ -264,7 +276,15 @@ class _AuthenticatedRoute extends StatelessWidget {
         !auth.firebaseUser!.isAnonymous &&
         !auth.needsEmailVerification &&
         auth.profile != null &&
+        AppRoles.isValid(auth.profile!.role) &&
         (role == null || auth.profile!.role == role);
+    if (kDebugMode) {
+      debugPrint(
+        '[AUTH DEBUG] Route guard UID: ${auth.firebaseUser?.uid}; '
+        'role: ${auth.profile?.role}; expected: $role; allowed: $allowed; '
+        'destination: ${allowed ? child.runtimeType : AuthGate}',
+      );
+    }
     return allowed ? child : const AuthGate();
   }
 }

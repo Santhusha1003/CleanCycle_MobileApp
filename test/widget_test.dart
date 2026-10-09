@@ -11,6 +11,8 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(const CleanCycleApp(firebaseReady: false));
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pump();
 
     expect(find.text('CleanCycle'), findsOneWidget);
     expect(find.text('Clean Today, Greener Tomorrow'), findsOneWidget);

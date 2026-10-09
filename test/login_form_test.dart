@@ -10,6 +10,8 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const CleanCycleApp(firebaseReady: false));
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pump();
   }
 
   testWidgets('Login CTA stays disabled until email and password are filled', (

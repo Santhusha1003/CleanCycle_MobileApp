@@ -41,6 +41,18 @@ class FirestoreService extends FirebaseService {
     }
   }
 
+  /// Reads documents with their IDs for models that support older schemas.
+  Future<List<DocumentSnapshot<Map<String, dynamic>>>> getCollectionSnapshots({
+    required String path,
+  }) async {
+    try {
+      final snapshot = await _firestore.collection(path).get();
+      return snapshot.docs;
+    } on FirebaseException catch (exception) {
+      throw FirebaseServiceException.fromFirebaseException(exception);
+    }
+  }
+
   /// Adds a new document to a collection and returns the document ID.
   Future<String> addDocument({
     required String path,

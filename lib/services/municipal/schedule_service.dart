@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../vishani/services/tracking_service.dart';
 import '../../models/collection_schedule.dart';
 import '../firebase/firebase_service.dart';
 import '../firebase/firestore_service.dart';
+import 'driver_service.dart';
+import 'vehicle_service.dart';
 
 /// Service for managing municipal collection schedule records in Firestore.
 class ScheduleServiceException implements Exception {
@@ -15,8 +18,21 @@ class ScheduleServiceException implements Exception {
 }
 
 class ScheduleService {
-  ScheduleService({FirestoreService? firestoreService})
-    : _firestoreService = firestoreService ?? FirestoreService();
+  ScheduleService({
+    FirestoreService? firestoreService,
+    DriverService? driverService,
+    VehicleService? vehicleService,
+    TrackingService? trackingService,
+  }) : _firestoreService = firestoreService ?? FirestoreService(),
+       _driverService =
+           driverService ?? DriverService(firestoreService: firestoreService),
+       _vehicleService =
+           vehicleService ?? VehicleService(firestoreService: firestoreService),
+       _trackingService =
+           trackingService ??
+           TrackingService(
+             firestore: (firestoreService ?? FirestoreService()).firestore,
+           );
 
   static const String collectionPath = 'schedules';
   static const Set<String> allowedWasteTypes = {
@@ -34,6 +50,9 @@ class ScheduleService {
   };
 
   final FirestoreService _firestoreService;
+  final DriverService _driverService;
+  final VehicleService _vehicleService;
+  final TrackingService _trackingService;
 
   String _normalizeScheduleId(String value) {
     final normalized = value.trim();
@@ -137,9 +156,67 @@ class ScheduleService {
     }
   }
 
+  Future<String?> _resolveAssignment(CollectionSchedule schedule) async {
+    final driverId = schedule.assignedDriverId?.trim();
+    final vehicleId = schedule.assignedVehicleId?.trim();
+    if (schedule.status.trim().toLowerCase() == 'cancelled') return null;
+    if (driverId == null || driverId.isEmpty) {
+      if (schedule.assignedDriverUid?.trim().isNotEmpty == true) {
+        throw const ScheduleServiceException(
+          'A Driver Auth UID cannot be assigned without its municipal Driver record.',
+        );
+      }
+      return null;
+    }
+    if (vehicleId == null || vehicleId.isEmpty) {
+      throw const ScheduleServiceException(
+        'Choose a vehicle when assigning a Driver.',
+      );
+    }
+    final driver = await _driverService.getDriver(driverId: driverId);
+    if (driver == null) {
+      throw const ScheduleServiceException(
+        'The selected Driver record could not be found.',
+      );
+    }
+    if (!['available', 'assigned'].contains(driver.status.toLowerCase())) {
+      throw const ScheduleServiceException(
+        'The selected Driver is not available for assignment.',
+      );
+    }
+    final vehicle = await _vehicleService.getVehicle(
+      registrationNumber: vehicleId,
+    );
+    if (vehicle == null ||
+        !['available', 'assigned'].contains(vehicle.status.toLowerCase())) {
+      throw const ScheduleServiceException(
+        'Choose an existing vehicle that is available for assignment.',
+      );
+    }
+    if (driver.assignedVehicleId != null &&
+        driver.assignedVehicleId != vehicleId) {
+      throw const ScheduleServiceException(
+        'The selected Driver is already linked to a different vehicle.',
+      );
+    }
+    if (vehicle.assignedDriverId != null &&
+        vehicle.assignedDriverId != driverId) {
+      throw const ScheduleServiceException(
+        'The selected vehicle is already linked to a different Driver.',
+      );
+    }
+    try {
+      return await _driverService.resolveVerifiedAuthUid(driverId: driverId);
+    } on DriverServiceException catch (error) {
+      throw ScheduleServiceException(error.message);
+    }
+  }
+
   Future<void> createSchedule({required CollectionSchedule schedule}) async {
     try {
       final normalizedScheduleId = _normalizeScheduleId(schedule.scheduleId);
+      final assignedDriverUid = await _resolveAssignment(schedule);
+      final isCancelled = schedule.status.trim().toLowerCase() == 'cancelled';
       _validateSchedule(
         CollectionSchedule(
           scheduleId: normalizedScheduleId,
@@ -150,6 +227,7 @@ class ScheduleService {
           wasteType: schedule.wasteType,
           assignedVehicleId: schedule.assignedVehicleId,
           assignedDriverId: schedule.assignedDriverId,
+          assignedDriverUid: assignedDriverUid,
           status: schedule.status,
           notes: schedule.notes,
           createdAt: DateTime.now(),
@@ -173,25 +251,39 @@ class ScheduleService {
         startTime: _normalizeTextField(schedule.startTime, 'startTime'),
         endTime: _normalizeTextField(schedule.endTime, 'endTime'),
         wasteType: _normalizeTextField(schedule.wasteType, 'wasteType'),
-        assignedVehicleId: schedule.assignedVehicleId?.trim().isEmpty == true
+        assignedVehicleId:
+            isCancelled || schedule.assignedVehicleId?.trim().isEmpty == true
             ? null
             : schedule.assignedVehicleId,
-        assignedDriverId: schedule.assignedDriverId?.trim().isEmpty == true
+        assignedDriverId:
+            isCancelled || schedule.assignedDriverId?.trim().isEmpty == true
             ? null
             : schedule.assignedDriverId,
+        assignedDriverUid: assignedDriverUid,
         status: schedule.status.trim().toLowerCase(),
         notes: schedule.notes?.trim().isEmpty == true ? null : schedule.notes,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
-      await _firestoreService.setDocument(
-        path: _documentPath(normalizedScheduleId),
-        data: scheduleToSave.toMap(),
-        merge: false,
-      );
+      if (assignedDriverUid != null) {
+        await _trackingService.createAssignedTrip(
+          'schedules',
+          normalizedScheduleId,
+          sourceData: scheduleToSave.toMap(),
+          mergeSource: false,
+        );
+      } else {
+        await _trackingService.saveScheduleAndProjection(
+          normalizedScheduleId,
+          scheduleData: scheduleToSave.toMap(),
+          mergeSchedule: false,
+        );
+      }
     } on ScheduleServiceException {
       rethrow;
+    } on StateError catch (exception) {
+      throw ScheduleServiceException(exception.message);
     } on FirebaseException catch (exception) {
       throw FirebaseServiceException.fromFirebaseException(exception);
     } catch (exception) {
@@ -211,9 +303,11 @@ class ScheduleService {
       if (data == null) {
         return null;
       }
-      return CollectionSchedule.fromMap(data);
+      return CollectionSchedule.fromMap(data, documentId: normalizedScheduleId);
     } on ScheduleServiceException {
       rethrow;
+    } on StateError catch (exception) {
+      throw ScheduleServiceException(exception.message);
     } on FirebaseException catch (exception) {
       throw FirebaseServiceException.fromFirebaseException(exception);
     } catch (exception) {
@@ -226,13 +320,15 @@ class ScheduleService {
 
   Future<List<CollectionSchedule>> getSchedules() async {
     try {
-      final docs = await _firestoreService.getCollection(path: collectionPath);
+      final docs = await _firestoreService.getCollectionSnapshots(
+        path: collectionPath,
+      );
 
       if (docs.isEmpty) {
         return const <CollectionSchedule>[];
       }
 
-      return docs.map((data) => CollectionSchedule.fromMap(data)).toList();
+      return docs.map(CollectionSchedule.fromDocumentSnapshot).toList();
     } on FirebaseException catch (exception) {
       throw FirebaseServiceException.fromFirebaseException(exception);
     }
@@ -251,14 +347,20 @@ class ScheduleService {
         );
       }
 
-      final existingSchedule = await getSchedule(
-        scheduleId: normalizedScheduleId,
+      final existingData = await _firestoreService.getDocument(
+        path: _documentPath(normalizedScheduleId),
       );
-      if (existingSchedule == null) {
+      if (existingData == null) {
         throw ScheduleServiceException(
           'Schedule with scheduleId "$normalizedScheduleId" does not exist.',
         );
       }
+      final existingSchedule = CollectionSchedule.fromMap(
+        existingData,
+        documentId: normalizedScheduleId,
+      );
+      final assignedDriverUid = await _resolveAssignment(schedule);
+      final isCancelled = schedule.status.trim().toLowerCase() == 'cancelled';
 
       _validateSchedule(
         CollectionSchedule(
@@ -270,6 +372,7 @@ class ScheduleService {
           wasteType: schedule.wasteType,
           assignedVehicleId: schedule.assignedVehicleId,
           assignedDriverId: schedule.assignedDriverId,
+          assignedDriverUid: assignedDriverUid,
           status: schedule.status,
           notes: schedule.notes,
           createdAt: existingSchedule.createdAt,
@@ -284,25 +387,70 @@ class ScheduleService {
         startTime: _normalizeTextField(schedule.startTime, 'startTime'),
         endTime: _normalizeTextField(schedule.endTime, 'endTime'),
         wasteType: _normalizeTextField(schedule.wasteType, 'wasteType'),
-        assignedVehicleId: schedule.assignedVehicleId?.trim().isEmpty == true
+        assignedVehicleId:
+            isCancelled || schedule.assignedVehicleId?.trim().isEmpty == true
             ? null
             : schedule.assignedVehicleId,
-        assignedDriverId: schedule.assignedDriverId?.trim().isEmpty == true
+        assignedDriverId:
+            isCancelled || schedule.assignedDriverId?.trim().isEmpty == true
             ? null
             : schedule.assignedDriverId,
+        assignedDriverUid: assignedDriverUid,
         status: schedule.status.trim().toLowerCase(),
         notes: schedule.notes?.trim().isEmpty == true ? null : schedule.notes,
         createdAt: existingSchedule.createdAt,
         updatedAt: DateTime.now(),
       );
 
-      await _firestoreService.setDocument(
-        path: _documentPath(normalizedScheduleId),
-        data: updatedSchedule.toMap(),
-        merge: false,
-      );
+      final data = updatedSchedule.toMap();
+      // Preserve the shared Resident record's date format and any unchanged
+      // display values (e.g. "upcoming", "Recyclable Waste", "8:00 AM").
+      if (existingData['collectionDate'] is String) {
+        data['collectionDate'] = updatedSchedule.collectionDate
+            .toIso8601String();
+      }
+      final previousValues = {
+        'wasteType': existingSchedule.wasteType,
+        'status': existingSchedule.status,
+        'startTime': existingSchedule.startTime,
+        'endTime': existingSchedule.endTime,
+      };
+      for (final entry in previousValues.entries) {
+        if (data[entry.key] == entry.value) {
+          data[entry.key] = existingData[entry.key];
+        }
+      }
+      final hadTrip =
+          existingData['trackingTripId'] != null ||
+          existingData['assignedDriverUid'] != null;
+      final projectionSourceData = {...existingData, ...data};
+      if (assignedDriverUid != null) {
+        await _trackingService.createAssignedTrip(
+          'schedules',
+          normalizedScheduleId,
+          sourceData: data,
+          projectionData: projectionSourceData,
+          mergeSource: true,
+        );
+      } else if (hadTrip ||
+          schedule.status.trim().toLowerCase() == 'cancelled') {
+        await _trackingService.clearScheduleTrip(
+          normalizedScheduleId,
+          sourceData: data,
+          projectionData: projectionSourceData,
+        );
+      } else {
+        await _trackingService.saveScheduleAndProjection(
+          normalizedScheduleId,
+          scheduleData: data,
+          projectionData: projectionSourceData,
+          mergeSchedule: true,
+        );
+      }
     } on ScheduleServiceException {
       rethrow;
+    } on StateError catch (exception) {
+      throw ScheduleServiceException(exception.message);
     } on FirebaseException catch (exception) {
       throw FirebaseServiceException.fromFirebaseException(exception);
     } catch (exception) {
@@ -325,11 +473,11 @@ class ScheduleService {
         );
       }
 
-      await _firestoreService.deleteDocument(
-        path: _documentPath(normalizedScheduleId),
-      );
+      await _trackingService.deleteScheduleAndProjection(normalizedScheduleId);
     } on ScheduleServiceException {
       rethrow;
+    } on StateError catch (exception) {
+      throw ScheduleServiceException(exception.message);
     } on FirebaseException catch (exception) {
       throw FirebaseServiceException.fromFirebaseException(exception);
     }

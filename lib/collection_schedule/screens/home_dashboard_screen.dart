@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'collection_schedule_screen.dart';
+import '../../navigation/app_routes.dart';
+import '../../widgets/common/authenticated_user_greeting.dart';
 import 'waste_categories_screen.dart';
 import 'recycling_tips_screen.dart';
 import 'recycling_centre_locator_screen.dart';
@@ -62,7 +64,6 @@ class HomeDashboardScreen extends StatelessWidget {
               // ==================================================
               // HEADER
               // ==================================================
-
               Row(
                 children: [
                   Container(
@@ -72,28 +73,32 @@ class HomeDashboardScreen extends StatelessWidget {
                       color: lightGreen,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.person_outline,
-                      color: primaryGreen,
-                      size: 27,
+                    child: IconButton(
+                      tooltip: 'Profile',
+                      onPressed: () =>
+                          Navigator.pushNamed(context, AppRoutes.profile),
+                      icon: const Icon(
+                        Icons.person_outline,
+                        color: primaryGreen,
+                        size: 27,
+                      ),
                     ),
                   ),
 
                   const SizedBox(width: 12),
 
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Hi, Resident!',
+                        const AuthenticatedUserGreeting(
                           style: TextStyle(
                             fontSize: 21,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        SizedBox(height: 3),
-                        Text(
+                        const SizedBox(height: 3),
+                        const Text(
                           "Let's make a cleaner tomorrow",
                           style: TextStyle(fontSize: 13, color: Colors.black54),
                         ),
@@ -102,16 +107,21 @@ class HomeDashboardScreen extends StatelessWidget {
                   ),
 
                   Container(
-                    width: 42,
-                    height: 42,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.grey.shade200),
                     ),
-                    child: const Icon(
-                      Icons.notifications_none,
-                      color: Colors.black87,
+                    child: IconButton(
+                      tooltip: 'Notifications',
+                      onPressed: () =>
+                          Navigator.pushNamed(context, AppRoutes.notifications),
+                      icon: const Icon(
+                        Icons.notifications_none,
+                        color: Colors.black87,
+                      ),
                     ),
                   ),
                 ],

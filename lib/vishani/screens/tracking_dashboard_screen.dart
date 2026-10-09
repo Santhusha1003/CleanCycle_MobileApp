@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../navigation/app_routes.dart';
+import '../../widgets/common/authenticated_user_greeting.dart';
 import '../services/tracking_service.dart';
 import 'live_tracking_screen.dart';
 import 'collection_status_screen.dart';
 import 'report_missed_screen.dart';
 import 'special_pickup_screen.dart';
+import 'driver_profile_screen.dart';
+import '../../services/municipal/driver_service.dart';
+import 'package:provider/provider.dart';
+import '../../features/auth/presentation/auth_controller.dart';
 
 class TrackingDashboardScreen extends StatefulWidget {
-  const TrackingDashboardScreen({super.key});
+  const TrackingDashboardScreen({super.key, this.driverService});
+
+  final DriverService? driverService;
 
   @override
-  State<TrackingDashboardScreen> createState() => _TrackingDashboardScreenState();
+  State<TrackingDashboardScreen> createState() =>
+      _TrackingDashboardScreenState();
 }
 
 class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
@@ -18,18 +27,29 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
   int _currentTabIndex = 0;
   Map<String, dynamic>? _nextCollection;
   bool _isLoading = true;
+  String? _dashboardUid;
+  bool _started = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadDashboardData();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final uid = context.watch<AuthController>().firebaseUser?.uid;
+    if (!_started || uid != _dashboardUid) {
+      _started = true;
+      _dashboardUid = uid;
+      _nextCollection = null;
+      _loadDashboardData();
+    }
   }
 
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
     try {
-      final data = await _trackingService.fetchNextCollection('USR-2026-COL');
-      if (mounted) {
+      final uid = context.read<AuthController>().firebaseUser?.uid;
+      final data = uid == null
+          ? <String, dynamic>{}
+          : await _trackingService.fetchNextCollection(uid);
+      if (mounted && uid == _dashboardUid) {
         setState(() {
           _nextCollection = data;
           _isLoading = false;
@@ -50,10 +70,10 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
         child: _currentTabIndex == 0
             ? _buildHomeDashboard()
             : _currentTabIndex == 1
-                ? const LiveTrackingScreen(isEmbedded: true)
-                : _currentTabIndex == 2
-                    ? const SpecialPickupScreen(isEmbedded: true)
-                    : _buildProfilePlaceholder(),
+            ? const LiveTrackingScreen(isEmbedded: true)
+            : _currentTabIndex == 2
+            ? const SpecialPickupScreen(isEmbedded: true)
+            : DriverProfileScreen(driverService: widget.driverService),
       ),
       bottomNavigationBar: _buildBottomNav(),
     );
@@ -94,44 +114,50 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
 
   Widget _buildHeader() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          children: [
-            CircleAvatar(
+        InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () => Navigator.pushNamed(context, AppRoutes.driverProfile),
+          child: const Tooltip(
+            message: 'Profile',
+            child: CircleAvatar(
               radius: 22,
-              backgroundColor: const Color(0xFFE8F5E9),
-              child: const Icon(Icons.person, color: Color(0xFF2E7D32), size: 26),
+              backgroundColor: Color(0xFFE8F5E9),
+              child: Icon(Icons.person, color: Color(0xFF2E7D32), size: 26),
             ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Hi, Santhusha!',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1B3B2B),
-                  ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AuthenticatedUserGreeting(
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1B3B2B),
                 ),
-                Row(
-                  children: [
-                    Text(
+              ),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
                       "Let's keep our city clean",
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.eco, color: Color(0xFF2E7D32), size: 14),
-                  ],
-                ),
-              ],
-            ),
-          ],
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.eco, color: Color(0xFF2E7D32), size: 14),
+                ],
+              ),
+            ],
+          ),
         ),
+        const SizedBox(width: 8),
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -139,12 +165,14 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
             border: Border.all(color: Colors.grey.shade200),
           ),
           child: IconButton(
-            icon: const Icon(Icons.notifications_none, color: Color(0xFF1B3B2B), size: 22),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No new collection alerts')),
-              );
-            },
+            tooltip: 'Notifications',
+            icon: const Icon(
+              Icons.notifications_none,
+              color: Color(0xFF1B3B2B),
+              size: 22,
+            ),
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.notifications),
           ),
         ),
       ],
@@ -165,10 +193,13 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
       );
     }
 
-    final date = _nextCollection?['date'] as DateTime? ?? DateTime(2026, 8, 13);
-    final formattedDate = DateFormat('EEEE, d MMM yyyy').format(date);
-    final category = _nextCollection?['category'] ?? 'Recyclable Waste';
-    final timeWindow = _nextCollection?['timeWindow'] ?? '8:00 AM - 12:00 PM';
+    final date = _nextCollection?['date'] as DateTime?;
+    final formattedDate = date == null
+        ? ''
+        : DateFormat('EEEE, d MMM yyyy').format(date);
+    final category =
+        _nextCollection?['category'] ?? 'No assigned collection available';
+    final timeWindow = _nextCollection?['timeWindow'] ?? '';
 
     return InkWell(
       onTap: () {
@@ -212,7 +243,11 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
                     color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
+                  child: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -230,11 +265,17 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
                       const SizedBox(height: 2),
                       Text(
                         formattedDate,
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
                       ),
                       Text(
                         timeWindow,
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),
@@ -358,7 +399,9 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFE8F5E9),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFA5D6A7).withValues(alpha: 0.6)),
+            border: Border.all(
+              color: const Color(0xFFA5D6A7).withValues(alpha: 0.6),
+            ),
           ),
           child: Row(
             children: [
@@ -393,54 +436,14 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
                   height: 70,
                   width: 70,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.eco,
-                    size: 48,
-                    color: Color(0xFF2E7D32),
-                  ),
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.eco, size: 48, color: Color(0xFF2E7D32)),
                 ),
               ),
             ],
           ),
         ),
       ],
-    );
-  }
-
-
-  Widget _buildProfilePlaceholder() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircleAvatar(
-            radius: 40,
-            backgroundColor: Color(0xFFE8F5E9),
-            child: Icon(Icons.person, color: Color(0xFF2E7D32), size: 48),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Vishani Somarathna',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Resident ID: RES-COL-44360',
-            style: TextStyle(color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              setState(() => _currentTabIndex = 0);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Return to Home', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 
@@ -451,7 +454,10 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
       type: BottomNavigationBarType.fixed,
       selectedItemColor: const Color(0xFF2E7D32),
       unselectedItemColor: Colors.grey.shade500,
-      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+      selectedLabelStyle: const TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 12,
+      ),
       unselectedLabelStyle: const TextStyle(fontSize: 12),
       items: const [
         BottomNavigationBarItem(

@@ -82,7 +82,7 @@ void main() {
       );
 
       expect(driver.driverName, 'Nalin Perera');
-      expect(driver.vehicleNumber, 'WP-NA-4521');
+      expect(driver.vehicleNumber, isEmpty);
       expect(driver.etaMinutes, 20);
 
       final map = driver.toMap();

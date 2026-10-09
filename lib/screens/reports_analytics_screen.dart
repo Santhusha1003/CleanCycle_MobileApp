@@ -3,19 +3,23 @@ import 'package:flutter/material.dart';
 import '../services/municipal/municipal_analytics_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/common/app_card.dart';
+import '../widgets/municipal/performance_charts.dart';
 import '../widgets/common/app_primary_button.dart';
-import '../widgets/common/app_stat_card.dart';
+import '../navigation/app_routes.dart';
+import '../widgets/common/authenticated_user_greeting.dart';
 
 class ReportsAnalyticsScreen extends StatefulWidget {
-  const ReportsAnalyticsScreen({super.key});
+  const ReportsAnalyticsScreen({super.key, this.analyticsService});
+
+  final MunicipalAnalyticsService? analyticsService;
 
   @override
   State<ReportsAnalyticsScreen> createState() => _ReportsAnalyticsScreenState();
 }
 
 class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
-  final MunicipalAnalyticsService _analyticsService =
-      MunicipalAnalyticsService();
+  late final MunicipalAnalyticsService _analyticsService =
+      widget.analyticsService ?? MunicipalAnalyticsService();
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -37,11 +41,13 @@ class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
 
     try {
       final summary = await _analyticsService.getMunicipalAnalyticsSummary();
+      if (!mounted) return;
       setState(() {
         _summary = summary;
         _isLoading = false;
       });
     } on Exception catch (exception) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = _safeErrorMessage(exception);
         _isLoading = false;
@@ -56,18 +62,39 @@ class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 72,
+        backgroundColor: AppColors.white,
         elevation: 0,
-        title: const Text(
-          'Reports & Analytics',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
+        leading: IconButton(
+          tooltip: 'Notifications',
+          icon: const Icon(
+            Icons.notifications_outlined,
+            color: AppColors.primaryDark,
           ),
+          onPressed: () =>
+              Navigator.pushNamed(context, AppRoutes.notifications),
+        ),
+        centerTitle: true,
+        title: const Column(
+          children: [
+            Text(
+              'CleanCycle',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              'Municipal Operations',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 10),
+            ),
+            SizedBox(height: 2),
+            AuthenticatedUserGreeting(textAlign: TextAlign.center),
+          ],
         ),
         actions: [
-          // Refresh button — always visible
           IconButton(
             onPressed: _isLoading ? null : _loadAnalytics,
             icon: const Icon(
@@ -75,6 +102,14 @@ class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
               color: AppColors.primaryDark,
             ),
             tooltip: 'Refresh',
+          ),
+          IconButton(
+            tooltip: 'Profile',
+            icon: const Icon(
+              Icons.account_circle_outlined,
+              color: AppColors.primaryDark,
+            ),
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.profile),
           ),
         ],
       ),
@@ -143,199 +178,309 @@ class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
 
   // ─── Main content ──────────────────────────────────────────────────────────
 
-  Widget _buildContent(MunicipalAnalyticsSummary summary) {
+  Widget _buildContent(MunicipalAnalyticsSummary s) {
     return RefreshIndicator(
       color: AppColors.primary,
       onRefresh: _loadAnalytics,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Subtitle ──────────────────────────────────────────────
             const Text(
-              'Municipal operations at a glance',
+              'Collection Analytics',
               style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary,
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
               ),
             ),
+            const SizedBox(height: 6),
+            const Text(
+              'Overview of municipal collection performance.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            ),
+            const SizedBox(height: 18),
+            _buildDateScope(),
+            const SizedBox(height: 20),
+            _buildStatusSection(
+              title: 'Collection Performance',
+              icon: Icons.insights_outlined,
+              totalLabel: 'Total collections today',
+              total: s.todayCollections,
+              rows: [
+                ('Completed', s.completedToday, AppColors.primary),
+                ('In Progress', s.inProgressToday, const Color(0xFF9B6500)),
+                ('Scheduled', s.scheduledToday, AppColors.info),
+                ('Cancelled', s.cancelledToday, AppColors.error),
+              ],
+              emptyMessage: 'No collections scheduled for today.',
+            ),
             const SizedBox(height: 24),
-
-            // ── Vehicles ─────────────────────────────────────────────
-            _SectionHeading(
+            const _SectionHeading(
+              icon: Icons.dashboard_outlined,
+              label: 'Operations Snapshot',
+            ),
+            const SizedBox(height: 12),
+            _buildMetricGrid([
+              (
+                'Total Vehicles',
+                s.totalVehicles,
+                Icons.local_shipping_outlined,
+              ),
+              (
+                'Available Vehicles',
+                s.availableVehicles,
+                Icons.check_circle_outline,
+              ),
+              ('Total Drivers', s.totalDrivers, Icons.drive_eta_outlined),
+              ('Available Drivers', s.availableDrivers, Icons.person_outline),
+              ('Total Staff', s.totalStaff, Icons.groups_outlined),
+              ('Active Staff', s.activeStaff, Icons.badge_outlined),
+              ("Today's Collections", s.todayCollections, Icons.today_outlined),
+              ('Completed', s.completedToday, Icons.task_alt),
+              ('In Progress', s.inProgressToday, Icons.timelapse),
+              ('Cancelled', s.cancelledToday, Icons.cancel_outlined),
+            ]),
+            const SizedBox(height: 24),
+            VehiclePerformanceChart(
+              collections: s.completedCollectionsByVehicleToday,
+            ),
+            const SizedBox(height: 16),
+            // Existing schedules record assignments, not completed route history.
+            const DriverPerformanceChart(),
+            const SizedBox(height: 16),
+            _buildStatusSection(
+              title: 'Vehicle Status',
               icon: Icons.local_shipping_outlined,
-              label: 'Vehicles',
-            ),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.55,
-              children: [
-                AppStatCard(
-                  title: 'Total Vehicles',
-                  value: '${summary.totalVehicles}',
-                  icon: Icons.local_shipping_outlined,
-                  iconBackground: AppColors.lightGreen,
-                ),
-                AppStatCard(
-                  title: 'Available',
-                  value: '${summary.availableVehicles}',
-                  icon: Icons.check_circle_outline_rounded,
-                  iconBackground: AppColors.greenSurface,
-                ),
-                AppStatCard(
-                  title: 'In Maintenance',
-                  value: '${summary.maintenanceVehicles}',
-                  icon: Icons.build_outlined,
-                  iconBackground: const Color(0xFFFFF3E0),
+              totalLabel: 'Total vehicles',
+              total: s.totalVehicles,
+              rows: [
+                ('Available', s.availableVehicles, AppColors.primary),
+                (
+                  'In Maintenance',
+                  s.maintenanceVehicles,
+                  const Color(0xFF9B6500),
                 ),
               ],
+              emptyMessage: 'No vehicles recorded.',
             ),
-            const SizedBox(height: 24),
-
-            // ── Drivers ───────────────────────────────────────────────
-            _SectionHeading(icon: Icons.drive_eta_outlined, label: 'Drivers'),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.55,
-              children: [
-                AppStatCard(
-                  title: 'Total Drivers',
-                  value: '${summary.totalDrivers}',
-                  icon: Icons.drive_eta_outlined,
-                  iconBackground: AppColors.lightGreen,
-                ),
-                AppStatCard(
-                  title: 'Available',
-                  value: '${summary.availableDrivers}',
-                  icon: Icons.check_circle_outline_rounded,
-                  iconBackground: AppColors.greenSurface,
-                ),
-                AppStatCard(
-                  title: 'Assigned',
-                  value: '${summary.assignedDrivers}',
-                  icon: Icons.assignment_ind_outlined,
-                  iconBackground: const Color(0xFFEAF4FF),
-                ),
+            const SizedBox(height: 16),
+            _buildStatusSection(
+              title: 'Driver Overview',
+              icon: Icons.drive_eta_outlined,
+              totalLabel: 'Total drivers',
+              total: s.totalDrivers,
+              rows: [
+                ('Available', s.availableDrivers, AppColors.primary),
+                ('Assigned', s.assignedDrivers, AppColors.info),
               ],
+              emptyMessage: 'No drivers recorded.',
+            ),
+            const SizedBox(height: 16),
+            _buildStatusSection(
+              title: 'Staff Overview',
+              icon: Icons.groups_outlined,
+              totalLabel: 'Total staff',
+              total: s.totalStaff,
+              rows: [('Active', s.activeStaff, AppColors.primary)],
+              emptyMessage: 'No staff recorded.',
             ),
             const SizedBox(height: 24),
-
-            // ── Staff ─────────────────────────────────────────────────
-            _SectionHeading(icon: Icons.people_alt_outlined, label: 'Staff'),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.55,
-              children: [
-                AppStatCard(
-                  title: 'Total Staff',
-                  value: '${summary.totalStaff}',
-                  icon: Icons.people_alt_outlined,
-                  iconBackground: AppColors.lightGreen,
-                ),
-                AppStatCard(
-                  title: 'Active',
-                  value: '${summary.activeStaff}',
-                  icon: Icons.person_rounded,
-                  iconBackground: AppColors.greenSurface,
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // ── Today's Collections ───────────────────────────────────
-            _SectionHeading(
-              icon: Icons.today_outlined,
-              label: "Today's Collections",
-            ),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              childAspectRatio: 1.55,
-              children: [
-                AppStatCard(
-                  title: 'Total Today',
-                  value: '${summary.todayCollections}',
-                  icon: Icons.checklist_rounded,
-                  iconBackground: AppColors.lightGreen,
-                ),
-                AppStatCard(
-                  title: 'Completed',
-                  value: '${summary.completedToday}',
-                  icon: Icons.check_circle_outline_rounded,
-                  iconBackground: AppColors.greenSurface,
-                ),
-                AppStatCard(
-                  title: 'Scheduled',
-                  value: '${summary.scheduledToday}',
-                  icon: Icons.calendar_today_outlined,
-                  iconBackground: const Color(0xFFEAF4FF),
-                ),
-                AppStatCard(
-                  title: 'In Progress',
-                  value: '${summary.inProgressToday}',
-                  icon: Icons.play_circle_outline_rounded,
-                  iconBackground: AppColors.lightGreen,
-                ),
-                AppStatCard(
-                  title: 'Cancelled',
-                  value: '${summary.cancelledToday}',
-                  icon: Icons.cancel_outlined,
-                  iconBackground: const Color(0xFFFFEAEA),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // ── Collections by Waste Type ─────────────────────────────
-            _SectionHeading(
-              icon: Icons.delete_outline_rounded,
+            const _SectionHeading(
+              icon: Icons.recycling_outlined,
               label: 'Collections by Waste Type',
             ),
             const SizedBox(height: 12),
             _buildBreakdownCard(
-              data: summary.collectionsByWasteType,
+              data: s.collectionsByWasteType,
               labelMapper: _wasteTypeLabel,
               emptyMessage: 'No collections today by waste type.',
-              total: summary.todayCollections,
+              total: s.todayCollections,
             ),
             const SizedBox(height: 24),
-
-            // ── Collections by Zone ───────────────────────────────────
-            _SectionHeading(
+            const _SectionHeading(
               icon: Icons.location_on_outlined,
               label: 'Collections by Zone',
             ),
             const SizedBox(height: 12),
             _buildBreakdownCard(
-              data: summary.collectionsByZone,
+              data: s.collectionsByZone,
               labelMapper: (key) => key,
               emptyMessage: 'No collections today by zone.',
-              total: summary.todayCollections,
+              total: s.todayCollections,
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDateScope() {
+    final now = DateTime.now();
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final date =
+        '${now.day.toString().padLeft(2, '0')} ${months[now.month - 1]} ${now.year}';
+    // Analytics currently supports today only. Keep the scope explicit;
+    // do not expose a date picker that cannot filter the underlying metrics.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Tooltip(
+          message: "Today's collection overview",
+          child: AppCard(
+            color: AppColors.greenSurface,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.date_range_outlined,
+                  color: AppColors.primaryDark,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Today · $date',
+                    style: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.expand_more,
+                  color: AppColors.textSecondary,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Collections today · current fleet and team totals',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricGrid(List<(String, int, IconData)> metrics) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth < 280 ? 1 : 2;
+        return Column(
+          children: [
+            for (var index = 0; index < metrics.length; index += columns)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (
+                        var offset = 0;
+                        offset < columns && index + offset < metrics.length;
+                        offset++
+                      ) ...[
+                        if (offset > 0) const SizedBox(width: 12),
+                        Expanded(
+                          child: _MetricCard(
+                            label: metrics[index + offset].$1,
+                            count: metrics[index + offset].$2,
+                            icon: metrics[index + offset].$3,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStatusSection({
+    required String title,
+    required IconData icon,
+    required String totalLabel,
+    required int total,
+    required List<(String, int, Color)> rows,
+    required String emptyMessage,
+  }) {
+    return AppCard(
+      color: AppColors.white,
+      elevation: 0.5,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeading(icon: icon, label: title),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.greenSurface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    totalLabel,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$total',
+                  style: const TextStyle(
+                    color: AppColors.primaryDark,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          for (final row in rows)
+            _BreakdownRow(
+              label: row.$1,
+              count: row.$2,
+              fraction: total > 0 ? (row.$2 / total).clamp(0.0, 1.0) : 0,
+              color: row.$3,
+            ),
+          if (total == 0)
+            Text(
+              emptyMessage,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -364,11 +509,13 @@ class _ReportsAnalyticsScreenState extends State<ReportsAnalyticsScreen> {
               size: 18,
             ),
             const SizedBox(width: 10),
-            Text(
-              emptyMessage,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 14,
+            Expanded(
+              child: Text(
+                emptyMessage,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                ),
               ),
             ),
           ],
@@ -435,12 +582,14 @@ class _SectionHeading extends StatelessWidget {
       children: [
         Icon(icon, color: AppColors.primaryDark, size: 18),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],
@@ -455,11 +604,13 @@ class _BreakdownRow extends StatelessWidget {
     required this.label,
     required this.count,
     required this.fraction,
+    this.color = AppColors.primary,
   });
 
   final String label;
   final int count;
   final double fraction;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -472,14 +623,17 @@ class _BreakdownRow extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
+              const SizedBox(width: 12),
               Text(
                 '$count',
                 style: const TextStyle(
@@ -493,14 +647,69 @@ class _BreakdownRow extends StatelessWidget {
           const SizedBox(height: 6),
           // Progress bar
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: fraction,
-              minHeight: 6,
+              minHeight: 7,
               backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AppColors.primary,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
+    required this.label,
+    required this.count,
+    required this.icon,
+  });
+  final String label;
+  final int count;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      elevation: 0.5,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.greenSurface,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: AppColors.primaryDark, size: 18),
               ),
+              const Spacer(),
+              Flexible(
+                child: Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: AppColors.primaryDark,
+                    fontSize: 27,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

@@ -10,6 +10,9 @@ class SpecialPickupModel {
   final String notes;
   final List<String> photoUrls;
   final String status;
+  final String? assignedDriverUid;
+  final String? assignedDriverId;
+  final String? assignedVehicleId;
   final DateTime createdAt;
 
   SpecialPickupModel({
@@ -22,6 +25,9 @@ class SpecialPickupModel {
     required this.notes,
     this.photoUrls = const [],
     this.status = 'Pending',
+    this.assignedDriverUid,
+    this.assignedDriverId,
+    this.assignedVehicleId,
     required this.createdAt,
   });
 
@@ -36,11 +42,17 @@ class SpecialPickupModel {
       'notes': notes,
       'photoUrls': photoUrls,
       'status': status,
+      if (assignedDriverUid != null) 'assignedDriverUid': assignedDriverUid,
+      if (assignedDriverId != null) 'assignedDriverId': assignedDriverId,
+      if (assignedVehicleId != null) 'assignedVehicleId': assignedVehicleId,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 
-  factory SpecialPickupModel.fromMap(Map<String, dynamic> map, [String? documentId]) {
+  factory SpecialPickupModel.fromMap(
+    Map<String, dynamic> map, [
+    String? documentId,
+  ]) {
     DateTime parseDate(dynamic val) {
       if (val is Timestamp) return val.toDate();
       if (val is String) return DateTime.tryParse(val) ?? DateTime.now();
@@ -57,6 +69,9 @@ class SpecialPickupModel {
       notes: map['notes'] ?? '',
       photoUrls: List<String>.from(map['photoUrls'] ?? []),
       status: map['status'] ?? 'Pending',
+      assignedDriverUid: map['assignedDriverUid'] as String?,
+      assignedDriverId: map['assignedDriverId'] as String?,
+      assignedVehicleId: map['assignedVehicleId'] as String?,
       createdAt: parseDate(map['createdAt']),
     );
   }
@@ -88,6 +103,9 @@ class SpecialPickupModel {
       notes: notes ?? this.notes,
       photoUrls: photoUrls ?? this.photoUrls,
       status: status ?? this.status,
+      assignedDriverUid: assignedDriverUid,
+      assignedDriverId: assignedDriverId,
+      assignedVehicleId: assignedVehicleId,
       createdAt: createdAt ?? this.createdAt,
     );
   }

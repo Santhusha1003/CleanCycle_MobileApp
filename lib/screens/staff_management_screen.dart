@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
 
 import '../models/staff.dart';
+import 'staff_details_screen.dart';
 import '../services/municipal/staff_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/common/app_card.dart';
 import '../widgets/common/app_primary_button.dart';
+import '../widgets/common/municipal_add_button.dart';
 import '../widgets/common/app_search_field.dart';
-import '../widgets/common/app_secondary_button.dart';
+import '../widgets/common/municipal_crud_actions.dart';
 import '../widgets/common/app_status_card.dart';
 import '../widgets/common/app_text_field.dart';
 
 class StaffManagementScreen extends StatefulWidget {
-  const StaffManagementScreen({super.key});
+  const StaffManagementScreen({super.key, this.staffService});
+
+  final StaffService? staffService;
 
   @override
   State<StaffManagementScreen> createState() => _StaffManagementScreenState();
 }
 
 class _StaffManagementScreenState extends State<StaffManagementScreen> {
-  final StaffService _staffService = StaffService();
+  late final StaffService _staffService = widget.staffService ?? StaffService();
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
@@ -366,131 +370,33 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     );
   }
 
-  // ─── View detail dialog ────────────────────────────────────────────────────
+  // ─── Record details ────────────────────────────────────────────────────
 
   void _showStaffDetail(Staff staff) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.greenSurface,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.person_rounded,
-                color: AppColors.primaryDark,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                staff.fullName,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _dialogDetailRow('Staff ID', staff.staffId),
-              _dialogDetailRow('Position', staff.position),
-              _dialogDetailRow('Email', staff.email),
-              _dialogDetailRow('Phone', staff.phoneNumber),
-              if (staff.assignedZone != null && staff.assignedZone!.isNotEmpty)
-                _dialogDetailRow('Zone', staff.assignedZone!),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Text(
-                    'Status: ',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  AppStatusCard(
-                    statusText: _statusLabel(staff.status),
-                    color: _statusColor(staff.status),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _dialogDetailRow('Created', _formatDate(staff.createdAt)),
-              _dialogDetailRow('Last Updated', _formatDate(staff.updatedAt)),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text(
-              'Close',
-              style: TextStyle(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              _showStaffForm(staff: staff);
-            },
-            child: const Text(
-              'Edit',
-              style: TextStyle(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _dialogDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: RichText(
-        text: TextSpan(
-          style: const TextStyle(
-            fontSize: 14,
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w500,
-          ),
-          children: [
-            TextSpan(
-              text: '$label: ',
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            TextSpan(text: value),
-          ],
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StaffDetailsScreen(
+          staff: staff,
+          onEdit: (record) async {
+            await _showStaffForm(staff: record);
+            if (!mounted) return null;
+            await _loadStaff();
+            if (!mounted) return null;
+            final matches = _staffMembers.where(
+              (item) => item.staffId == record.staffId,
+            );
+            return matches.isEmpty ? null : matches.first;
+          },
+          onDelete: (record) async {
+            await _confirmDelete(record);
+            return mounted &&
+                !_staffMembers.any((item) => item.staffId == record.staffId);
+          },
         ),
       ),
     );
   }
-
-  // ─── Delete ────────────────────────────────────────────────────────────────
 
   Future<void> _confirmDelete(Staff staff) async {
     final confirmed = await showDialog<bool>(
@@ -590,7 +496,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
               const SizedBox(height: 16),
 
               // ── Add button ────────────────────────────────────────────
-              AppPrimaryButton(
+              MunicipalAddButton(
                 label: 'Add Staff Member',
                 onPressed: () => _showStaffForm(),
               ),
@@ -717,23 +623,6 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     }
   }
 
-  static Color _statusColor(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'active':
-        return AppColors.lightGreen;
-      case 'inactive':
-        return const Color(0xFFFFEAEA);
-      case 'on_leave':
-        return const Color(0xFFFFF3E0);
-      default:
-        return AppColors.greenSurface;
-    }
-  }
-
-  static String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
   static String? _normalizeOptional(String value) {
     final normalized = value.trim();
     return normalized.isEmpty ? null : normalized;
@@ -835,16 +724,9 @@ class _StaffCard extends StatelessWidget {
           const SizedBox(height: 14),
 
           // ── Actions ──────────────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: AppSecondaryButton(label: 'Edit', onPressed: onEdit),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AppSecondaryButton(label: 'Delete', onPressed: onDelete),
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: MunicipalCrudActions(onEdit: onEdit, onDelete: onDelete),
           ),
         ],
       ),

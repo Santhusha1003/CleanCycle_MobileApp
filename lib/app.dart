@@ -6,7 +6,7 @@ import 'navigation/app_router.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/data/user_repository.dart';
 import 'features/auth/presentation/auth_controller.dart';
-import 'features/auth/presentation/screens/auth_gate.dart';
+import 'screens/splash_screen.dart';
 import 'features/notifications/data/fcm_service.dart';
 import 'features/profile/presentation/profile_controller.dart';
 
@@ -45,7 +45,7 @@ class CleanCycleApp extends StatelessWidget {
         title: 'CleanCycle',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
-        home: const AuthGate(),
+        home: const SplashScreen(),
         onGenerateRoute: AppRouter.generateRoute,
       ),
     );

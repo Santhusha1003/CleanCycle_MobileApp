@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isResidentRole(data) {
+      return data.role == 'resident';
+    }
+
+    // Users may only touch their own profile document.
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+
+      // CREATE: self only, and role must be resident (no self-promotion).
+      allow create: if isOwner(userId)
+                    && isResidentRole(request.resource.data);
+
+      // UPDATE: self only, and the role field must stay unchanged.
+      allow update: if isOwner(userId)
+                    && request.resource.data.role == resource.data.role;
+
+      // DELETE: self only (used by "Delete account").
+      allow delete: if isOwner(userId);
+    }
+
+    // ─── TEMPORARY DEVELOPMENT RULES ────────────────────────────────────────
+    // Access is restricted to authenticated Firebase users only.
+    // DO NOT use: allow read, write: if true;
+    //
+    // These rules are intentionally temporary while Member 01 completes the
+    // Firebase Authentication and role management system.
+    //
+    // TODO (post-auth integration): Replace these rules with role-based rules
+    // that verify a Municipal Officer role, e.g. by checking a custom claim:
+    //   request.auth.token.role == 'municipal_officer'
+    // or a Firestore user profile document such as:
+    //   get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'municipal_officer'
+    // ─────────────────────────────────────────────────────────────────────────
+
+    match /vehicles/{vehicleId} {
+      allow create, read, update, delete: if request.auth != null;
+    }
+
+    match /drivers/{driverId} {
+      allow create, read, update, delete: if request.auth != null;
+    }
+
+    match /staff/{staffId} {
+      allow create, read, update, delete: if request.auth != null;
+    }
+
+    match /schedules/{scheduleId} {
+      allow create, read, update, delete: if request.auth != null;
+    }
+
+    match /missedCollectionReports/{reportId} {
+      allow create, read: if request.auth != null;
+    }
+
+    // Member 03 requests/reports belong to the authenticated submitting user.
+    // Preserve ownership when editing; never grant a public catch-all.
+    match /special_pickups/{requestId} {
+      allow create: if isOwner(request.resource.data.userId);
+      allow read, delete: if isOwner(resource.data.userId);
+      allow update: if isOwner(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId;
+    }
+
+    match /missed_reports/{reportId} {
+      allow create: if isOwner(request.resource.data.userId);
+      allow read, delete: if isOwner(resource.data.userId);
+      allow update: if isOwner(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId;
+    }
+
+    // TrackingService only reads these collections; client writes stay denied.
+    match /driver_trips/{driverId} {
+      allow read: if request.auth != null;
+    }
+
+    match /collection_schedules/{userId} {
+      allow read: if isOwner(userId);
+    }
+
+  }
+}

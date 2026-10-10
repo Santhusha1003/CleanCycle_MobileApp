@@ -36,6 +36,15 @@ Before testing Firebase-backed features, the project owner must ensure the Fireb
 
 Use authorized team test accounts. Registration creates Resident accounts; Driver and Municipal Officer access depends on the corresponding authorized role/profile records and, for Driver assignment, the verified Driver-to-Auth-UID mapping. Do not promote an account by editing its role from an ordinary client. Firebase Console permissions, deployed rules, and backend data are managed separately from this mobile repository. Do not use Firestore test mode or broaden rules to make the app run.
 
+The login flow implements Email/Password and Google sign-in; Apple sign-in is currently a placeholder. For Google sign-in on Android, a maintainer must register the development signing certificate SHA-1 (and SHA-256) for the Android app in Firebase Console. The debug certificate fingerprints can be obtained with:
+
+```bash
+cd android
+./gradlew signingReport
+```
+
+If Firebase Console configuration is changed, keep the downloaded Android `google-services.json` and FlutterFire options aligned with this project and application ID.
+
 The checked-in Firebase client configuration identifies the project but is not a Firebase Admin credential. Never add service-account keys, private credentials, or personal local configuration to Git. If a maintainer intentionally changes Firebase projects, they should use FlutterFire CLI to regenerate the appropriate platform options/configuration and review the project IDs before sharing that change.
 
 ## Development checks

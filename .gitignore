@@ -3,6 +3,11 @@
 *.log
 *.pyc
 *.swp
+.env
+.env.*
+!.env.example
+service-account*.json
+*-service-account*.json
 .DS_Store
 .atom/
 .build/
@@ -43,6 +48,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/local.properties
 
 # Local Admin Web build and dependency artifacts
 /admin_web/node_modules/

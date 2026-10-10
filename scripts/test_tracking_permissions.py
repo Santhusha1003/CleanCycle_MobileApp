@@ -96,6 +96,14 @@ class TrackingRules(unittest.TestCase):
             'collectionDate', 'startTime', 'endTime', 'zone', 'wasteType',
             'status', 'acceptedItems', 'instructions'})
         self.assertEqual(self.call('/schedules/s1', 'one')[0], 403)
+        # Match the app's unfiltered resident_schedules collection snapshot.
+        query = {'structuredQuery': {'from': [{'collectionId': 'resident_schedules'}]}}
+        status, rows = self.call(':runQuery', 'one', 'POST', query)
+        self.assertEqual(status, 200)
+        self.assertEqual(len([row for row in rows if 'document' in row]), 2)
+        # Residents must not list the internal schedule collection.
+        internal_query = {'structuredQuery': {'from': [{'collectionId': 'schedules'}]}}
+        self.assertEqual(self.call(':runQuery', 'one', 'POST', internal_query)[0], 403)
         forged = {**{
             'collectionDate': '2026-10-10T00:00:00.000',
             'startTime': '08:00', 'endTime': '10:00', 'zone': 'North',

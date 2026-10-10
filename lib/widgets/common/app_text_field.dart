@@ -15,11 +15,12 @@ class AppTextField extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
   final String? Function(String?)? validator;
   final FocusNode? focusNode;
+  final Key? fieldKey;
   final int? maxLines;
   final int? minLines;
 
   const AppTextField({
-    Key? key,
+    super.key,
     this.controller,
     this.label,
     this.hintText,
@@ -32,13 +33,15 @@ class AppTextField extends StatelessWidget {
     this.onSubmitted,
     this.validator,
     this.focusNode,
+    this.fieldKey,
     this.maxLines = 1,
     this.minLines,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
+      key: fieldKey,
       controller: controller,
       focusNode: focusNode,
       keyboardType: keyboardType,

@@ -5,7 +5,9 @@ import '../services/collection_schedule_service.dart';
 import 'collection_schedule_details_screen.dart';
 
 class CollectionCalendarScreen extends StatefulWidget {
-  const CollectionCalendarScreen({super.key});
+  const CollectionCalendarScreen({super.key, this.scheduleService});
+
+  final CollectionScheduleService? scheduleService;
 
   @override
   State<CollectionCalendarScreen> createState() =>
@@ -13,8 +15,8 @@ class CollectionCalendarScreen extends StatefulWidget {
 }
 
 class _CollectionCalendarScreenState extends State<CollectionCalendarScreen> {
-  final CollectionScheduleService _scheduleService =
-      CollectionScheduleService();
+  late final CollectionScheduleService _scheduleService =
+      widget.scheduleService ?? CollectionScheduleService();
 
   late DateTime _selectedMonth;
   DateTime? _selectedDate;
@@ -166,7 +168,6 @@ class _CollectionCalendarScreenState extends State<CollectionCalendarScreen> {
                 // =========================
                 // MONTH HEADER
                 // =========================
-
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,

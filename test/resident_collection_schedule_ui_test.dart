@@ -82,6 +82,34 @@ Finder _card(String label) =>
 
 void main() {
   testWidgets(
+    'Calendar loads the shared Resident projection for its selected date',
+    (tester) async {
+      final date = DateTime.now();
+      final schedule = _schedule(
+        date,
+        'Resident projection schedule',
+        status: 'scheduled',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CollectionCalendarScreen(
+            scheduleService: _Schedules([schedule]),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Select a date to view collection schedules.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('${date.day}'));
+      await tester.pumpAndSettle();
+      expect(find.text('Resident projection schedule'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'Week/month control preserves filtering, sorting and selected semantics',
     (tester) async {
       final semantics = tester.ensureSemantics();

@@ -52,6 +52,7 @@ dependencies:
   latlong2: ^0.10.1
   firebase_storage: ^13.6.0
   intl: ^0.20.3
+  timezone: ^0.10.1
   url_launcher: ^6.3.3
 
 dev_dependencies:

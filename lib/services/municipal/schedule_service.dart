@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../vishani/services/tracking_service.dart';
 import '../../models/collection_schedule.dart';
@@ -213,10 +214,13 @@ class ScheduleService {
   }
 
   Future<void> createSchedule({required CollectionSchedule schedule}) async {
+    var stage = 'validating schedule fields';
     try {
       final normalizedScheduleId = _normalizeScheduleId(schedule.scheduleId);
+      stage = 'verifying Driver and vehicle assignment';
       final assignedDriverUid = await _resolveAssignment(schedule);
       final isCancelled = schedule.status.trim().toLowerCase() == 'cancelled';
+      stage = 'validating schedule fields';
       _validateSchedule(
         CollectionSchedule(
           scheduleId: normalizedScheduleId,
@@ -235,6 +239,7 @@ class ScheduleService {
         ),
       );
 
+      stage = 'checking for an existing schedule ID';
       final existingSchedule = await getSchedule(
         scheduleId: normalizedScheduleId,
       );
@@ -266,6 +271,7 @@ class ScheduleService {
         updatedAt: DateTime.now(),
       );
 
+      stage = 'committing schedule, projection, and tracking writes';
       if (assignedDriverUid != null) {
         await _trackingService.createAssignedTrip(
           'schedules',
@@ -282,11 +288,27 @@ class ScheduleService {
       }
     } on ScheduleServiceException {
       rethrow;
+    } on FirebaseServiceException catch (exception) {
+      _logSaveFailure('create', stage, exception.code, exception.message);
+      rethrow;
     } on StateError catch (exception) {
+      _logSaveFailure('create', stage, 'state-error', exception.message);
       throw ScheduleServiceException(exception.message);
     } on FirebaseException catch (exception) {
+      _logSaveFailure(
+        'create',
+        stage,
+        exception.code,
+        exception.message ?? 'No Firebase error message was provided.',
+      );
       throw FirebaseServiceException.fromFirebaseException(exception);
     } catch (exception) {
+      _logSaveFailure(
+        'create',
+        stage,
+        'unexpected-error',
+        exception.runtimeType.toString(),
+      );
       if (exception is FormatException) {
         throw ScheduleServiceException(exception.message);
       }
@@ -334,10 +356,17 @@ class ScheduleService {
     }
   }
 
+  /// One-time, explicitly invoked backfill for safe Resident schedule views.
+  /// New schedule creation and updates already maintain their projections.
+  Future<ResidentScheduleProjectionSyncResult>
+  publishExistingResidentProjections() =>
+      _trackingService.publishExistingResidentScheduleProjections();
+
   Future<void> updateSchedule({
     required String scheduleId,
     required CollectionSchedule schedule,
   }) async {
+    var stage = 'loading existing schedule';
     try {
       final normalizedScheduleId = _normalizeScheduleId(scheduleId);
 
@@ -359,9 +388,11 @@ class ScheduleService {
         existingData,
         documentId: normalizedScheduleId,
       );
+      stage = 'verifying Driver and vehicle assignment';
       final assignedDriverUid = await _resolveAssignment(schedule);
       final isCancelled = schedule.status.trim().toLowerCase() == 'cancelled';
 
+      stage = 'validating updated schedule fields';
       _validateSchedule(
         CollectionSchedule(
           scheduleId: normalizedScheduleId,
@@ -424,6 +455,7 @@ class ScheduleService {
           existingData['trackingTripId'] != null ||
           existingData['assignedDriverUid'] != null;
       final projectionSourceData = {...existingData, ...data};
+      stage = 'committing schedule, projection, and tracking writes';
       if (assignedDriverUid != null) {
         await _trackingService.createAssignedTrip(
           'schedules',
@@ -449,15 +481,44 @@ class ScheduleService {
       }
     } on ScheduleServiceException {
       rethrow;
+    } on FirebaseServiceException catch (exception) {
+      _logSaveFailure('update', stage, exception.code, exception.message);
+      rethrow;
     } on StateError catch (exception) {
+      _logSaveFailure('update', stage, 'state-error', exception.message);
       throw ScheduleServiceException(exception.message);
     } on FirebaseException catch (exception) {
+      _logSaveFailure(
+        'update',
+        stage,
+        exception.code,
+        exception.message ?? 'No Firebase error message was provided.',
+      );
       throw FirebaseServiceException.fromFirebaseException(exception);
     } catch (exception) {
+      _logSaveFailure(
+        'update',
+        stage,
+        'unexpected-error',
+        exception.runtimeType.toString(),
+      );
       if (exception is FormatException) {
         throw ScheduleServiceException(exception.message);
       }
       rethrow;
+    }
+  }
+
+  void _logSaveFailure(
+    String operation,
+    String stage,
+    String code,
+    String message,
+  ) {
+    if (kDebugMode) {
+      debugPrint(
+        '[SCHEDULE SAVE] operation=$operation stage=$stage code=$code message=$message',
+      );
     }
   }
 

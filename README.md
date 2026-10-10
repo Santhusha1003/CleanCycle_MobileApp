@@ -1,163 +1,57 @@
-# CleanCycle – Waste Collection & Recycling Scheduling App
+# CleanCycle Mobile App
 
-CleanCycle is a Flutter-based mobile application designed to improve waste collection and recycling management. It aims to help residents access waste collection schedules, receive reminders, report missed collections, locate recycling centres, and request special waste pickups. The application also supports waste collection drivers and municipal officers through relevant management interfaces.
-
-## Project Objectives
-
-- Improve access to waste collection schedules and related information.
-- Help residents manage waste collection activities more conveniently.
-- Support recycling awareness and responsible waste disposal.
-- Provide relevant interfaces for residents, drivers, and municipal officers.
-
-## Main Features
-
-### Resident Features
-- User registration and login
-- Profile management
-- Waste collection schedules and calendar views
-- Collection reminders and notifications
-- Missed collection reporting
-- Recycling information and recycling centre locator
-- Special waste pickup requests
-- Collection history
-
-### Driver Features
-- Access to relevant collection tasks
-- View collection information
-- Update collection status where supported
-
-### Municipal Officer Features
-- Collection schedule management
-- Vehicle management
-- Driver management
-- Collection analytics and overview
-
-*Feature availability may vary depending on the implemented version of the application.*
-
-## Technology Stack
-
-| Technology | Purpose |
-|---|---|
-| Flutter | Mobile application frontend |
-| Dart | Application programming language |
-| Firebase Authentication | User authentication |
-| Cloud Firestore | Cloud database |
-| Firebase Cloud Messaging (FCM) | Push notifications |
-| Google Maps Flutter / Google Maps API | Maps and location-related features |
-| Git and GitHub | Version control and source code management |
+CleanCycle is a Flutter app for municipal waste collection. It provides Resident, Driver, and Municipal Officer workflows for schedules, collection requests, tracking, and municipal operations.
 
 ## Prerequisites
 
-Before running the project, ensure that you have installed:
-
-- Flutter SDK
-- Dart SDK (included with Flutter)
-- Visual Studio Code or Android Studio
-- Android emulator or a compatible physical device
 - Git
+- Flutter with a bundled Dart SDK satisfying the project constraint `^3.11.1` (check with `flutter --version`)
+- Android Studio or the Android command-line tools, Android SDK/platform tools, and an Android emulator; alternatively, use a USB-connected Android device with USB debugging enabled
+- Firebase access for the configured project when using authenticated or Firestore-backed features
 
-Some features may also require Firebase project configuration and a valid Google Maps API key.
+Run `flutter doctor` and resolve the Android toolchain issues it reports before building.
 
-## Installation and Setup
-
-### 1. Clone the Repository
-
-Open your terminal and run:
+## Fresh checkout and run (Android)
 
 ```bash
 git clone https://github.com/Santhusha1003/CleanCycle_MobileApp.git
-```
-
-### 2. Navigate to the Project Directory
-
-```bash
 cd CleanCycle_MobileApp
-```
-
-### 3. Check the Flutter Environment
-
-```bash
-flutter doctor
-```
-
-Resolve any required setup issues before continuing.
-
-### 4. Install Dependencies
-
-```bash
 flutter pub get
-```
-
-### 5. Configure Firebase and Google Maps
-
-Ensure the project is connected to the correct Firebase project and that the required configuration files are available.
-
-Depending on the existing project setup, configuration may include:
-
-- Firebase configuration for Android and/or iOS
-- Firebase Authentication and Cloud Firestore setup
-- Firebase Cloud Messaging configuration
-- Google Maps API key configuration
-
-If the project uses FlutterFire CLI, Firebase configuration may be generated with:
-
-```bash
-dart pub global activate flutterfire_cli
-flutterfire configure
-```
-
-Run the configuration command only if it is appropriate for the existing Firebase project. Do not replace existing configuration files unnecessarily.
-
-**Important:** Do not commit private credentials, service-account keys, or other secrets to the public repository. Configure API keys and credentials securely.
-
-## Running the Application
-
-### 1. Check Available Devices
-
-```bash
 flutter devices
-```
-
-Start an emulator or connect a compatible physical device.
-
-### 2. Run the Application
-
-```bash
 flutter run
 ```
 
-To build an Android APK, run:
+Start an Android emulator in Android Studio or connect/unlock an Android device and accept its USB debugging prompt before `flutter run`. Select a device if Flutter lists more than one.
+
+## Firebase setup
+
+The repository currently includes FlutterFire options and native Firebase configuration for project **`cleancyclemobileapp`**. `lib/main.dart` initializes Firebase using `DefaultFirebaseOptions`; a fresh checkout does not need `flutterfire configure` to run against that configured project. The Android application ID is `com.example.cleancycle_mobileapp`.
+
+Before testing Firebase-backed features, the project owner must ensure the Firebase project has the required services enabled and correctly configured:
+
+- Firebase Authentication with the sign-in providers used by the app
+- Cloud Firestore with the application's security rules deployed by an authorized maintainer
+- Firebase Cloud Messaging for push notifications
+- Any required Firestore user profiles and role/feature records provisioned through the project's authorized administrative workflow
+
+Use authorized team test accounts. Registration creates Resident accounts; Driver and Municipal Officer access depends on the corresponding authorized role/profile records and, for Driver assignment, the verified Driver-to-Auth-UID mapping. Do not promote an account by editing its role from an ordinary client. Firebase Console permissions, deployed rules, and backend data are managed separately from this mobile repository. Do not use Firestore test mode or broaden rules to make the app run.
+
+The checked-in Firebase client configuration identifies the project but is not a Firebase Admin credential. Never add service-account keys, private credentials, or personal local configuration to Git. If a maintainer intentionally changes Firebase projects, they should use FlutterFire CLI to regenerate the appropriate platform options/configuration and review the project IDs before sharing that change.
+
+## Development checks
 
 ```bash
-flutter build apk
+flutter pub get
+flutter analyze
+flutter test
 ```
 
-The generated APK can be found under:
+Firestore rules tests that use the Firebase Emulator require the Firebase CLI and the configured emulator dependencies. They do not deploy rules or modify production data.
 
-```text
-build/app/outputs/flutter-apk/
-```
+## Project references
 
-Build output locations may vary depending on the Flutter configuration.
+- Manual CRUD cases: [`docs/FUNCTIONAL_TEST_CASES.md`](docs/FUNCTIONAL_TEST_CASES.md)
+- Prototype deviations: [`DEVIATIONS.md`](DEVIATIONS.md)
+- Firestore rules source: [`firestore.rules`](firestore.rules)
 
-## Troubleshooting
-
-- **Dependencies fail to resolve:** Run `flutter pub get` and check your internet connection.
-- **Firebase errors:** Verify that the Firebase configuration files match the correct Firebase project and application identifiers.
-- **Google Maps does not load:** Check the API key, API enablement, and billing/configuration requirements.
-- **No device is detected:** Run `flutter devices` and confirm that the emulator or physical device is available.
-- **Build errors:** Run `flutter doctor` and review the error messages in the terminal.
-
-## Version Control
-
-This project uses Git and GitHub for version control and collaboration.
-
-Repository: https://github.com/Santhusha1003/CleanCycle_MobileApp
-
-## Project Purpose
-
-CleanCycle was developed as an academic project for the Human-Computer Interaction (HCI) module. It applies user-centred design principles to a practical waste collection and recycling management problem.
-
-## License
-
-This project was developed for academic purposes. No open-source license is specified unless one is added to the repository.
+This is an academic HCI project. No open-source license is specified unless one is added to the repository.

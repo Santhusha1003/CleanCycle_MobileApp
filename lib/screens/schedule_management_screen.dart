@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/driver.dart';
 import '../models/vehicle.dart';
@@ -6,6 +7,7 @@ import '../models/collection_schedule.dart';
 import '../services/municipal/driver_service.dart';
 import '../services/municipal/schedule_service.dart';
 import '../services/municipal/vehicle_service.dart';
+import '../services/firebase/firebase_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/common/app_card.dart';
 import '../widgets/common/app_primary_button.dart';
@@ -41,6 +43,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
   late final VehicleService _vehicleService =
       widget.vehicleService ?? VehicleService();
   bool _deleteInProgress = false;
+  bool _publishingResidentProjections = false;
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
@@ -145,12 +148,16 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
     if (!mounted) return;
     final isEditing = schedule != null;
     final formKey = GlobalKey<FormState>();
+    final scheduleIdFieldKey = GlobalKey<FormFieldState<String>>();
+    final zoneFieldKey = GlobalKey<FormFieldState<String>>();
 
     final scheduleIdController = TextEditingController(
       text: schedule?.scheduleId ?? _generateScheduleId(),
     );
     final zoneController = TextEditingController(text: schedule?.zone ?? '');
     final notesController = TextEditingController(text: schedule?.notes ?? '');
+    var scheduleIdValue = scheduleIdController.text;
+    var zoneValue = zoneController.text;
 
     DateTime selectedDate = schedule?.collectionDate ?? DateTime.now();
     TimeOfDay selectedStartTime = schedule != null
@@ -163,6 +170,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
     String statusValue = schedule?.status ?? 'scheduled';
     String? selectedDriverId = schedule?.assignedDriverId;
     String? selectedVehicleId = schedule?.assignedVehicleId;
+    bool isSaving = false;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -235,10 +243,12 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
 
                           // ── Schedule ID (read-only when editing) ─────────
                           AppTextField(
+                            fieldKey: scheduleIdFieldKey,
                             controller: scheduleIdController,
                             label: 'Schedule ID',
                             hintText: 'schedule_123',
                             readOnly: isEditing,
+                            onChanged: (value) => scheduleIdValue = value,
                             validator: (value) {
                               if ((value ?? '').trim().isEmpty) {
                                 return 'Schedule ID is required';
@@ -250,9 +260,13 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
 
                           // ── Zone ─────────────────────────────────────────
                           AppTextField(
+                            fieldKey: zoneFieldKey,
                             controller: zoneController,
                             label: 'Zone',
                             hintText: 'e.g. North Zone',
+                            onChanged: (value) {
+                              zoneValue = value;
+                            },
                             validator: (value) {
                               if ((value ?? '').trim().isEmpty) {
                                 return 'Zone is required';
@@ -546,9 +560,29 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                             label: isEditing
                                 ? 'Update Schedule'
                                 : 'Save Schedule',
-                            isLoading: false,
+                            isLoading: isSaving,
                             onPressed: () async {
+                              if (isSaving) return;
                               if (!formKey.currentState!.validate()) return;
+                              final scheduleId =
+                                  scheduleIdFieldKey.currentState?.value ??
+                                  scheduleIdValue;
+                              final zone =
+                                  zoneFieldKey.currentState?.value ?? zoneValue;
+                              if (scheduleId.trim().isEmpty ||
+                                  zone.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      scheduleId.trim().isEmpty
+                                          ? 'Schedule ID is required.'
+                                          : 'Zone is required.',
+                                    ),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                                return;
+                              }
 
                               // Validate end time is not before start time
                               final startMinutes =
@@ -570,8 +604,8 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                               }
 
                               final schedulePayload = CollectionSchedule(
-                                scheduleId: scheduleIdController.text.trim(),
-                                zone: zoneController.text.trim(),
+                                scheduleId: scheduleId.trim(),
+                                zone: zone.trim(),
                                 collectionDate: selectedDate,
                                 startTime: _formatTime(selectedStartTime),
                                 endTime: _formatTime(selectedEndTime),
@@ -600,6 +634,12 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
 
                               String successMessage;
 
+                              if (kDebugMode) {
+                                debugPrint(
+                                  '[SCHEDULE SAVE] operation=${isEditing ? 'update' : 'create'} stage=calling_service fields=[scheduleId,zone,collectionDate,startTime,endTime,wasteType,status,assignedDriverId,assignedVehicleId,notes]',
+                                );
+                              }
+                              setModalState(() => isSaving = true);
                               try {
                                 if (isEditing) {
                                   await _scheduleService.updateSchedule(
@@ -615,21 +655,30 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                   successMessage =
                                       'Schedule created successfully.';
                                 }
-                              } on ScheduleServiceException catch (exception) {
+                                if (kDebugMode) {
+                                  debugPrint(
+                                    '[SCHEDULE SAVE] operation=${isEditing ? 'update' : 'create'} stage=service_succeeded',
+                                  );
+                                }
+                              } on Object catch (exception) {
+                                if (kDebugMode) {
+                                  final firebaseDetails =
+                                      exception is FirebaseServiceException
+                                      ? ' firebaseCode=${exception.code} firebaseMessage=${exception.message}'
+                                      : ' errorType=${exception.runtimeType}';
+                                  debugPrint(
+                                    '[SCHEDULE SAVE] operation=${isEditing ? 'update' : 'create'} stage=service_failed$firebaseDetails',
+                                  );
+                                }
                                 scaffoldMessenger.showSnackBar(
                                   SnackBar(
-                                    content: Text(exception.message),
+                                    content: Text(
+                                      _scheduleSaveErrorMessage(exception),
+                                    ),
                                     backgroundColor: AppColors.error,
                                   ),
                                 );
-                                return;
-                              } on Exception catch (exception) {
-                                scaffoldMessenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(_safeErrorMessage(exception)),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
+                                setModalState(() => isSaving = false);
                                 return;
                               }
 
@@ -850,6 +899,60 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
     }
   }
 
+  Future<void> _publishResidentProjections() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Publish Resident schedules?'),
+        content: const Text(
+          'This will create or refresh the Resident-safe schedule projection '
+          'from existing municipal schedules. Driver assignments and tracking '
+          'identifiers are excluded. Internal schedules are not changed.',
+        ),
+        actions: [
+          AppSecondaryButton(
+            label: 'Cancel',
+            compact: true,
+            onPressed: () => Navigator.pop(dialogContext, false),
+          ),
+          AppPrimaryButton(
+            label: 'Publish',
+            compact: true,
+            onPressed: () => Navigator.pop(dialogContext, true),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _publishingResidentProjections = true);
+    try {
+      final result = await _scheduleService
+          .publishExistingResidentProjections();
+      if (!mounted) return;
+      final skipped = result.skippedCount;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Published ${result.publishedCount} Resident schedule(s)'
+            '${skipped == 0 ? '.' : '; skipped $skipped incomplete record(s).'}',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+    } on Object catch (exception) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_safeErrorMessage(exception)),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _publishingResidentProjections = false);
+    }
+  }
+
   // ─── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -867,6 +970,21 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
             fontWeight: FontWeight.w700,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Publish Resident schedule projections',
+            onPressed: _publishingResidentProjections
+                ? null
+                : _publishResidentProjections,
+            icon: _publishingResidentProjections
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.publish_outlined),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -1068,6 +1186,13 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
   static String? _normalizeOptional(String value) {
     final normalized = value.trim();
     return normalized.isEmpty ? null : normalized;
+  }
+
+  static String _scheduleSaveErrorMessage(Object exception) {
+    if (exception is FirebaseServiceException) {
+      return 'Firestore ${exception.code}: ${exception.message}';
+    }
+    return _safeErrorMessage(exception);
   }
 
   static String _safeErrorMessage(Object exception) {

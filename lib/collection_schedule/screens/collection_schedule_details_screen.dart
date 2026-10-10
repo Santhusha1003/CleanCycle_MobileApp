@@ -1,10 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/collection_schedule.dart';
+import '../services/collection_schedule_reminder_service.dart';
 
-class CollectionScheduleDetailsScreen extends StatelessWidget {
+class CollectionScheduleDetailsScreen extends StatefulWidget {
   final CollectionSchedule schedule;
+  final CollectionScheduleReminderService? reminderService;
 
-  const CollectionScheduleDetailsScreen({super.key, required this.schedule});
+  const CollectionScheduleDetailsScreen({
+    super.key,
+    required this.schedule,
+    this.reminderService,
+  });
+
+  @override
+  State<CollectionScheduleDetailsScreen> createState() =>
+      _CollectionScheduleDetailsScreenState();
+}
+
+class _CollectionScheduleDetailsScreenState
+    extends State<CollectionScheduleDetailsScreen> {
+  bool _schedulingReminder = false;
+
+  CollectionSchedule get schedule => widget.schedule;
 
   // ============================================================
   // FORMAT DATE
@@ -44,15 +62,60 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
   // SET REMINDER
   // ============================================================
 
-  void _setReminder(BuildContext context) {
+  Future<void> _setReminder() async {
+    setState(() => _schedulingReminder = true);
+    var success = false;
+    String? error;
+    try {
+      await (widget.reminderService ?? LocalCollectionScheduleReminderService())
+          .scheduleReminder(schedule);
+      success = true;
+    } catch (exception) {
+      error = exception.toString().replaceFirst('Exception: ', '');
+    }
+    if (!mounted) return;
+    setState(() => _schedulingReminder = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Reminder set for ${schedule.wasteType}.'),
-        backgroundColor: const Color(0xFF159447),
+        content: Text(
+          success
+              ? 'Reminder scheduled for ${schedule.wasteType}.'
+              : 'Could not set reminder: $error',
+        ),
+        backgroundColor: success
+            ? const Color(0xFF159447)
+            : Colors.red.shade700,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 3),
       ),
     );
+  }
+
+  String _formatTime(String value) {
+    for (final pattern in ['H:mm', 'h:mm a']) {
+      try {
+        return DateFormat(
+          'h:mm a',
+        ).format(DateFormat(pattern).parseStrict(value));
+      } on FormatException {
+        // Preserve the actual stored value if it is not a supported time.
+      }
+    }
+    return value;
+  }
+
+  IconData _wasteIcon(String value) {
+    final category = value.toLowerCase();
+    if (category.contains('organic') || category.contains('food')) {
+      return Icons.compost_outlined;
+    }
+    if (category.contains('plastic')) return Icons.local_drink_outlined;
+    if (category.contains('paper')) return Icons.description_outlined;
+    if (category.contains('glass')) return Icons.wine_bar_outlined;
+    if (category.contains('electronic') || category.contains('e-waste')) {
+      return Icons.devices_other_outlined;
+    }
+    return Icons.recycling;
   }
 
   // ============================================================
@@ -84,7 +147,6 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
             // ==================================================
             // WASTE TYPE
             // ==================================================
-
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -100,8 +162,8 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
-                      Icons.recycling,
+                    child: Icon(
+                      _wasteIcon(schedule.wasteType),
                       color: Color(0xFF159447),
                       size: 30,
                     ),
@@ -153,7 +215,8 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
             _buildInfoCard(
               icon: Icons.access_time,
               title: 'Collection Time',
-              value: '${schedule.startTime} - ${schedule.endTime}',
+              value:
+                  '${_formatTime(schedule.startTime)} - ${_formatTime(schedule.endTime)}',
             ),
 
             const SizedBox(height: 12),
@@ -267,12 +330,19 @@ class CollectionScheduleDetailsScreen extends StatelessWidget {
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  _setReminder(context);
-                },
-                icon: const Icon(Icons.notifications_active_outlined),
-                label: const Text(
-                  'Set Reminder',
+                onPressed: _schedulingReminder ? null : _setReminder,
+                icon: _schedulingReminder
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.notifications_active_outlined),
+                label: Text(
+                  _schedulingReminder ? 'Scheduling…' : 'Set Reminder',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(

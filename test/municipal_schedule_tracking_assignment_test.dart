@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cleancycle_mobileapp/models/collection_schedule.dart';
 import 'package:cleancycle_mobileapp/models/driver.dart';
 import 'package:cleancycle_mobileapp/services/firebase/firestore_service.dart';
@@ -434,4 +435,81 @@ void main() {
     );
     expect(db.documents.containsKey('schedules/schedule-integration'), isFalse);
   });
+
+  test(
+    'one-time projection publisher migrates only safe valid schedule fields',
+    () async {
+      db.documents['schedules/legacy-schedule'] = {
+        'scheduleId': 'legacy-schedule',
+        'collectionDate': Timestamp.fromDate(DateTime(2026, 10, 10)),
+        'startTime': '08:00',
+        'endTime': '10:00',
+        'zone': 'North',
+        'wasteType': 'general',
+        'status': 'scheduled',
+        'assignedDriverId': 'municipal-driver-1',
+        'assignedDriverUid': 'd1',
+        'assignedVehicleId': 'ABC-001',
+        'trackingTripId': 'schedules_legacy-schedule',
+      };
+
+      final result = await trackingService
+          .publishExistingResidentScheduleProjections();
+
+      expect(result.publishedCount, 1);
+      expect(result.skippedCount, 2); // Existing incomplete fixture records.
+      final projection = db.documents['resident_schedules/legacy-schedule']!;
+      expect(projection, {
+        'collectionDate': Timestamp.fromDate(DateTime(2026, 10, 10)),
+        'startTime': '08:00',
+        'endTime': '10:00',
+        'zone': 'North',
+        'wasteType': 'general',
+        'status': 'scheduled',
+        'acceptedItems': <String>[],
+        'instructions': '',
+      });
+      expect(projection.keys, isNot(contains('assignedDriverUid')));
+      expect(projection.keys, isNot(contains('assignedDriverId')));
+      expect(projection.keys, isNot(contains('assignedVehicleId')));
+      expect(projection.keys, isNot(contains('trackingTripId')));
+      expect(
+        db.documents['schedules/legacy-schedule']!['trackingTripId'],
+        'schedules_legacy-schedule',
+      );
+    },
+  );
+
+  test(
+    'projection publisher is officer-only and skips malformed schedules',
+    () async {
+      db.documents['schedules/invalid-schedule'] = {
+        'collectionDate': 'not-a-date',
+        'startTime': '08:00',
+        'endTime': '10:00',
+        'wasteType': 'general',
+        'status': 'scheduled',
+      };
+      final result = await trackingService
+          .publishExistingResidentScheduleProjections();
+      expect(result.publishedCount, 0);
+      expect(result.skippedCount, 3);
+      expect(
+        db.documents.containsKey('resident_schedules/invalid-schedule'),
+        isFalse,
+      );
+
+      await expectLater(
+        TrackingService(
+          firestore: db,
+          authenticatedUid: () => 'd1',
+        ).publishExistingResidentScheduleProjections(),
+        throwsA(isA<StateError>()),
+      );
+      expect(
+        db.writes.where((path) => path.startsWith('resident_schedules/')),
+        isEmpty,
+      );
+    },
+  );
 }

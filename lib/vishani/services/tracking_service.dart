@@ -5,6 +5,16 @@ import 'package:flutter/foundation.dart';
 import '../../core/constants/app_roles.dart';
 import '../models/driver_tracking_model.dart';
 
+class ResidentScheduleProjectionSyncResult {
+  const ResidentScheduleProjectionSyncResult({
+    required this.publishedCount,
+    required this.skippedCount,
+  });
+
+  final int publishedCount;
+  final int skippedCount;
+}
+
 class TrackingService {
   TrackingService({
     FirebaseFirestore? firestore,
@@ -15,6 +25,86 @@ class TrackingService {
   final FirebaseFirestore? _firestore;
   final String? Function() _authenticatedUid;
   FirebaseFirestore get _instance => _firestore ?? FirebaseFirestore.instance;
+
+  /// Explicitly publishes safe Resident projections for schedules created
+  /// before projection writes were added. This is never run automatically.
+  Future<ResidentScheduleProjectionSyncResult>
+  publishExistingResidentScheduleProjections() async {
+    final operatorUid = _authenticatedUid();
+    if (operatorUid == null) throw StateError('Sign in first.');
+    final operator = await _instance.collection('users').doc(operatorUid).get();
+    if (!['municipal_officer', 'officer'].contains(operator.data()?['role'])) {
+      throw StateError(
+        'Only an approved Municipal Officer can publish schedules.',
+      );
+    }
+
+    final schedules = await _instance.collection('schedules').get();
+    final publishable = <({String id, Map<String, dynamic> data})>[];
+    var skippedCount = 0;
+    for (final schedule in schedules.docs) {
+      final projection = _safeResidentProjection(schedule.data());
+      if (projection == null) {
+        skippedCount++;
+        continue;
+      }
+      publishable.add((id: schedule.id, data: projection));
+    }
+
+    var publishedCount = 0;
+    for (var offset = 0; offset < publishable.length; offset += 450) {
+      final end = (offset + 450).clamp(0, publishable.length);
+      final batch = _instance.batch();
+      for (final schedule in publishable.sublist(offset, end)) {
+        batch.set(
+          _instance.collection('resident_schedules').doc(schedule.id),
+          schedule.data,
+        );
+      }
+      await batch.commit();
+      publishedCount += end - offset;
+    }
+    return ResidentScheduleProjectionSyncResult(
+      publishedCount: publishedCount,
+      skippedCount: skippedCount,
+    );
+  }
+
+  Map<String, dynamic>? _safeResidentProjection(Map<String, dynamic> schedule) {
+    final date = schedule['collectionDate'];
+    if (!(date is Timestamp || date is DateTime || date is String) ||
+        (date is String && DateTime.tryParse(date) == null)) {
+      return null;
+    }
+    for (final field in ['startTime', 'endTime', 'wasteType', 'status']) {
+      if (schedule[field] is! String) return null;
+    }
+    final zone = schedule['zone'];
+    if (schedule.containsKey('zone') && zone != null && zone is! String) {
+      return null;
+    }
+    final acceptedItems = schedule['acceptedItems'];
+    if (acceptedItems != null &&
+        (acceptedItems is! List ||
+            acceptedItems.any((item) => item is! String))) {
+      return null;
+    }
+    final instructions = schedule['instructions'];
+    if (instructions != null && instructions is! String) return null;
+
+    return {
+      'collectionDate': date,
+      'startTime': schedule['startTime'],
+      'endTime': schedule['endTime'],
+      if (schedule.containsKey('zone')) 'zone': zone,
+      'wasteType': schedule['wasteType'],
+      'status': schedule['status'],
+      'acceptedItems': schedule.containsKey('acceptedItems')
+          ? acceptedItems
+          : <String>[],
+      'instructions': schedule.containsKey('instructions') ? instructions : '',
+    };
+  }
 
   Stream<ResidentTrackingData> streamResidentTracking(String uid) =>
       _stream(uid, AppRoles.resident);

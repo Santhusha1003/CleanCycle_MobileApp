@@ -3,6 +3,7 @@ import 'package:cleancycle_mobileapp/collection_schedule/models/collection_sched
     as resident;
 import 'package:cleancycle_mobileapp/models/collection_schedule.dart';
 import 'package:cleancycle_mobileapp/services/firebase/firestore_service.dart';
+import 'package:cleancycle_mobileapp/services/firebase/firebase_service.dart';
 import 'package:cleancycle_mobileapp/services/municipal/schedule_service.dart';
 import 'package:cleancycle_mobileapp/vishani/services/tracking_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -72,6 +73,7 @@ class _Tracking extends TrackingService {
   _Tracking(this.store)
     : super(firestore: _Firestore(), authenticatedUid: () => 'officer');
   final _Store store;
+  Object? writeFailure;
 
   @override
   Future<void> saveScheduleAndProjection(
@@ -80,6 +82,7 @@ class _Tracking extends TrackingService {
     Map<String, dynamic>? projectionData,
     bool mergeSchedule = true,
   }) async {
+    if (writeFailure case final error?) throw error;
     final previous = store.records[scheduleId] ?? <String, dynamic>{};
     store.records[scheduleId] = {
       ...(mergeSchedule ? previous : <String, dynamic>{}),
@@ -290,6 +293,37 @@ void main() {
         service.createSchedule(schedule: schedule('new-id')),
         throwsA(isA<ScheduleServiceException>()),
       );
+    },
+  );
+
+  test(
+    'Create preserves Firestore write code and message on failure',
+    () async {
+      final store = _Store({});
+      final tracking = _Tracking(store)
+        ..writeFailure = FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'permission-denied',
+          message: 'Schedule write rejected by rules.',
+        );
+      final service = ScheduleService(
+        firestoreService: store,
+        trackingService: tracking,
+      );
+
+      await expectLater(
+        service.createSchedule(schedule: schedule('denied')),
+        throwsA(
+          isA<FirebaseServiceException>()
+              .having((error) => error.code, 'code', 'permission-denied')
+              .having(
+                (error) => error.message,
+                'message',
+                'Schedule write rejected by rules.',
+              ),
+        ),
+      );
+      expect(store.records, isEmpty);
     },
   );
 

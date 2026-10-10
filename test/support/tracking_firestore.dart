@@ -140,6 +140,9 @@ class _Collection implements CollectionReference<Map<String, dynamic>> {
   DocumentReference<Map<String, dynamic>> doc([String? id]) =>
       _Doc(db, '$path/${id ?? 'generated-${++db.sequence}'}');
   @override
+  Future<QuerySnapshot<Map<String, dynamic>>> get([GetOptions? options]) =>
+      _Query(db, path, const {}).get(options);
+  @override
   Query<Map<String, dynamic>> where(
     Object field, {
     Object? isEqualTo,

@@ -214,7 +214,18 @@ service cloud.firestore {
                   || (isResident()
                       && resource.data.residentId == request.auth.uid);
 
-      allow update, delete: if false;
+      allow update: if isResident()
+                    && resource.data.residentId == request.auth.uid
+                    && resource.data.get('reportStatus', 'pending') == 'pending'
+                    && request.resource.data.residentId == resource.data.residentId
+                    && request.resource.data.get('reportStatus', resource.data.get('reportStatus', 'pending'))
+                        == resource.data.get('reportStatus', 'pending')
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['reason', 'description']);
+
+      allow delete: if isResident()
+                    && resource.data.residentId == request.auth.uid
+                    && resource.data.get('reportStatus', 'pending') == 'pending';
     }
 
     // ---------------------------------------------------------

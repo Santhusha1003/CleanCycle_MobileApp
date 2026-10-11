@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/collection_schedule.dart';
 import '../services/collection_schedule_service.dart';
 import '../services/missed_collection_report_service.dart';
+import 'missed_collection_report_details_screen.dart';
+import 'missed_collection_reports_screen.dart';
 
 class MissedCollectionReportScreen extends StatefulWidget {
   const MissedCollectionReportScreen({
@@ -31,9 +33,8 @@ class _MissedCollectionReportScreenState
 
   final TextEditingController _descriptionController = TextEditingController();
 
-  // Store the Firestore document ID instead of the whole object.
-  String? _selectedScheduleId;
   String? _selectedReason;
+  DateTime? _selectedCollectionDate;
 
   bool _isSubmitting = false;
 
@@ -67,9 +68,52 @@ class _MissedCollectionReportScreenState
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
+  Future<void> _selectCollectionDate() async {
+    final now = DateTime.now();
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+    final today = DateTime(now.year, now.month, now.day);
+    final initialDate = _selectedCollectionDate == null
+        ? today
+        : DateTime(
+            _selectedCollectionDate!.year,
+            _selectedCollectionDate!.month,
+            _selectedCollectionDate!.day,
+          );
+
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate:
+          initialDate.isBefore(firstDayOfMonth) || initialDate.isAfter(today)
+          ? today
+          : initialDate,
+      firstDate: firstDayOfMonth,
+      lastDate: today,
+      helpText: 'Select missed collection date',
+      confirmText: 'Select',
+    );
+
+    if (selectedDate == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedCollectionDate = selectedDate;
+    });
+  }
+
   // ============================================================
   // SUBMIT REPORT
   // ============================================================
+
+  void _openReports() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            MissedCollectionReportsScreen(reportService: _reportService),
+      ),
+    );
+  }
 
   Future<void> _submitReport(
     List<CollectionSchedule> availableSchedules,
@@ -78,30 +122,31 @@ class _MissedCollectionReportScreenState
       return;
     }
 
-    if (_selectedScheduleId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a collection schedule.')),
-      );
-      return;
-    }
-
-    // Find the selected schedule using its unique Firestore ID.
-    CollectionSchedule? selectedSchedule;
-
-    for (final schedule in availableSchedules) {
-      if (schedule.id == _selectedScheduleId) {
-        selectedSchedule = schedule;
-        break;
-      }
-    }
-
-    if (selectedSchedule == null) {
+    if (_selectedCollectionDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Selected schedule is no longer available.'),
+          content: Text('Please select the missed collection date.'),
         ),
       );
       return;
+    }
+
+    // Find the schedule that matches the selected calendar date.
+    CollectionSchedule? selectedSchedule;
+
+    for (final schedule in availableSchedules) {
+      final scheduleDate = DateTime(
+        schedule.collectionDate.year,
+        schedule.collectionDate.month,
+        schedule.collectionDate.day,
+      );
+
+      if (scheduleDate.year == _selectedCollectionDate!.year &&
+          scheduleDate.month == _selectedCollectionDate!.month &&
+          scheduleDate.day == _selectedCollectionDate!.day) {
+        selectedSchedule = schedule;
+        break;
+      }
     }
 
     if (_selectedReason == null) {
@@ -117,9 +162,10 @@ class _MissedCollectionReportScreenState
 
     try {
       final reportId = await _reportService.submitReport(
-        scheduleId: selectedSchedule.id,
-        wasteType: selectedSchedule.wasteType,
-        collectionDate: selectedSchedule.collectionDate,
+        scheduleId: selectedSchedule?.id ?? '',
+        wasteType: selectedSchedule?.wasteType ?? 'Not specified',
+        collectionDate:
+            selectedSchedule?.collectionDate ?? _selectedCollectionDate!,
         reason: _selectedReason!,
         description: _descriptionController.text.trim(),
       );
@@ -130,18 +176,19 @@ class _MissedCollectionReportScreenState
 
       debugPrint('Missed collection report created: $reportId');
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Missed collection report submitted successfully.'),
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MissedCollectionReportDetailsScreen(
+            reportId: reportId,
+            wasteType: selectedSchedule?.wasteType ?? 'Not specified',
+            collectionDate:
+                selectedSchedule?.collectionDate ?? _selectedCollectionDate!,
+            reason: _selectedReason!,
+            description: _descriptionController.text.trim(),
+          ),
         ),
       );
-
-      // Clear the form.
-      setState(() {
-        _selectedScheduleId = null;
-        _selectedReason = null;
-        _descriptionController.clear();
-      });
     } catch (e) {
       if (!mounted) {
         return;
@@ -187,6 +234,18 @@ class _MissedCollectionReportScreenState
           'Report Missed Collection',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          TextButton(
+            onPressed: _openReports,
+            child: const Text(
+              'View Reports',
+              style: TextStyle(
+                color: Color(0xFF159447),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
 
       body: StreamBuilder<List<CollectionSchedule>>(
@@ -221,12 +280,8 @@ class _MissedCollectionReportScreenState
           final schedules = snapshot.data ?? <CollectionSchedule>[];
 
           // ====================================================
-          // GET PREVIOUS / COMPLETED SCHEDULES
+          // GET SCHEDULES FOR THE SELECTED DATE
           // ====================================================
-
-          final now = DateTime.now();
-
-          final today = DateTime(now.year, now.month, now.day);
 
           final availableSchedules = schedules.where((schedule) {
             final scheduleDate = DateTime(
@@ -235,25 +290,19 @@ class _MissedCollectionReportScreenState
               schedule.collectionDate.day,
             );
 
-            return scheduleDate.isBefore(today) ||
-                schedule.status.toLowerCase() == 'completed';
+            final matchesSelectedDate =
+                _selectedCollectionDate == null ||
+                (scheduleDate.year == _selectedCollectionDate!.year &&
+                    scheduleDate.month == _selectedCollectionDate!.month &&
+                    scheduleDate.day == _selectedCollectionDate!.day);
+
+            return matchesSelectedDate;
           }).toList();
 
           // Newest schedule first.
           availableSchedules.sort(
             (a, b) => b.collectionDate.compareTo(a.collectionDate),
           );
-
-          // Make sure the selected ID still exists.
-          final selectedIdExists =
-              _selectedScheduleId != null &&
-              availableSchedules.any(
-                (schedule) => schedule.id == _selectedScheduleId,
-              );
-
-          final safeSelectedScheduleId = selectedIdExists
-              ? _selectedScheduleId
-              : null;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -297,77 +346,44 @@ class _MissedCollectionReportScreenState
                   const SizedBox(height: 24),
 
                   // =============================================
-                  // COLLECTION SCHEDULE
+                  // MISSED COLLECTION DATE
                   // =============================================
                   const Text(
-                    'Collection Schedule',
+                    'Missed Collection Date',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
 
                   const SizedBox(height: 8),
 
-                  DropdownButtonFormField<String>(
-                    initialValue: safeSelectedScheduleId,
-
-                    isExpanded: true,
-
-                    decoration: InputDecoration(
-                      hintText: 'Select collection schedule',
-
-                      filled: true,
-                      fillColor: Colors.white,
-
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  InkWell(
+                    onTap: _isSubmitting ? null : _selectCollectionDate,
+                    borderRadius: BorderRadius.circular(10),
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        hintText: 'Select a date from this month',
+                        filled: true,
+                        fillColor: Colors.white,
+                        suffixIcon: const Icon(Icons.calendar_month_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
                       ),
-
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                    ),
-
-                    items: availableSchedules
-                        .map(
-                          (schedule) => DropdownMenuItem<String>(
-                            value: schedule.id,
-
-                            child: Text(
-                              '${_formatDate(schedule.collectionDate)} '
-                              '- ${schedule.wasteType}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-
-                    onChanged: _isSubmitting
-                        ? null
-                        : (value) {
-                            setState(() {
-                              _selectedScheduleId = value;
-                            });
-                          },
-
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please select a collection schedule.';
-                      }
-
-                      return null;
-                    },
-                  ),
-
-                  if (availableSchedules.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 8),
-
                       child: Text(
-                        'No previous collection schedules available.',
-                        style: TextStyle(fontSize: 12, color: Colors.redAccent),
+                        _selectedCollectionDate == null
+                            ? 'Select a date from this month'
+                            : _formatDate(_selectedCollectionDate!),
+                        style: TextStyle(
+                          color: _selectedCollectionDate == null
+                              ? Colors.black54
+                              : Colors.black87,
+                        ),
                       ),
                     ),
+                  ),
 
                   const SizedBox(height: 20),
 
@@ -493,7 +509,7 @@ class _MissedCollectionReportScreenState
                     height: 52,
 
                     child: ElevatedButton.icon(
-                      onPressed: availableSchedules.isEmpty || _isSubmitting
+                      onPressed: _isSubmitting
                           ? null
                           : () {
                               _submitReport(availableSchedules);

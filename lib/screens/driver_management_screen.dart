@@ -130,9 +130,9 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (modalContext, setModalState) {
             return Container(
-              height: MediaQuery.of(context).size.height * 0.9,
+              height: MediaQuery.of(modalContext).size.height * 0.9,
               decoration: const BoxDecoration(
                 color: AppColors.white,
                 borderRadius: BorderRadius.only(
@@ -275,7 +275,7 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                                 : 'Expiry: ${_formatDate(licenseExpiryDate!)}',
                             onPressed: () async {
                               final picked = await showDatePicker(
-                                context: context,
+                                context: modalContext,
                                 initialDate:
                                     licenseExpiryDate ?? DateTime.now(),
                                 firstDate: DateTime(2000),
@@ -319,7 +319,6 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
 
                               bool success = false;
                               String successMessage = '';
-
                               try {
                                 if (isEditing) {
                                   await _driverService.updateDriver(
@@ -337,10 +336,9 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                                 }
                                 success = true;
                               } on DriverServiceException catch (exception) {
-                                if (!mounted) return;
+                                if (!sheetContext.mounted) return;
                                 final errorMessage = exception.message;
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                ScaffoldMessenger.of(sheetContext).showSnackBar(
                                   SnackBar(
                                     content: Text(errorMessage),
                                     backgroundColor: AppColors.error,
@@ -348,12 +346,11 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                                 );
                                 return;
                               } on Exception catch (exception) {
-                                if (!mounted) return;
+                                if (!sheetContext.mounted) return;
                                 final errorMessage = _safeErrorMessage(
                                   exception,
                                 );
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                ScaffoldMessenger.of(sheetContext).showSnackBar(
                                   SnackBar(
                                     content: Text(errorMessage),
                                     backgroundColor: AppColors.error,
@@ -362,10 +359,10 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                                 return;
                               }
 
-                              if (!mounted) return;
-                              final safeContext = context;
+                              if (!sheetContext.mounted) return;
                               Navigator.pop(sheetContext, success);
-                              ScaffoldMessenger.of(safeContext).showSnackBar(
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(successMessage),
                                   backgroundColor: AppColors.success,
@@ -594,7 +591,7 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                 Expanded(
                   child: ListView.separated(
                     itemCount: _filteredDrivers.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final driver = _filteredDrivers[index];
 

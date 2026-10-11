@@ -13,7 +13,7 @@ class AppSecondaryButton extends StatelessWidget {
   final bool destructive;
 
   const AppSecondaryButton({
-    Key? key,
+    super.key,
     required this.label,
     required this.onPressed,
     this.isLoading = false,
@@ -22,7 +22,7 @@ class AppSecondaryButton extends StatelessWidget {
     this.compact = false,
     this.icon,
     this.destructive = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

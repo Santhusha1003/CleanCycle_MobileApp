@@ -56,8 +56,9 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
       setState(() {
         _loading = false;
         _driver = driver;
-        if (driver == null)
+        if (driver == null) {
           _message = 'No driver record linked to this account.';
+        }
       });
     } on DriverServiceException catch (error) {
       if (!mounted || request != _request) return;

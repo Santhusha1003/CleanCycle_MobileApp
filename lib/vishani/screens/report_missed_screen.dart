@@ -3,9 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/missed_report_model.dart';
 import '../services/missed_report_service.dart';
 import 'missed_details_screen.dart';
+import '../../features/auth/presentation/auth_controller.dart';
 
 class ReportMissedScreen extends StatefulWidget {
   const ReportMissedScreen({super.key});
@@ -91,9 +93,12 @@ class _ReportMissedScreenState extends State<ReportMissedScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      final uid = context.read<AuthController>().firebaseUser?.uid;
+      if (uid == null) throw StateError('Please sign in to submit a report.');
+
       final report = MissedReportModel(
         reportId: '',
-        userId: 'IT23844360',
+        userId: uid,
         collectionType: _selectedCategory,
         scheduledDate: _scheduledDate,
         description: _descController.text.trim(),

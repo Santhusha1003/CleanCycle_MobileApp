@@ -10,13 +10,13 @@ class AppStatusCard extends StatelessWidget {
   final double? borderRadius;
 
   const AppStatusCard({
-    Key? key,
+    super.key,
     required this.statusText,
     this.color,
     this.textColor,
     this.padding,
     this.borderRadius,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

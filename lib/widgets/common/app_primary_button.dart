@@ -12,7 +12,7 @@ class AppPrimaryButton extends StatelessWidget {
   final IconData? icon;
 
   const AppPrimaryButton({
-    Key? key,
+    super.key,
     required this.label,
     required this.onPressed,
     this.isLoading = false,
@@ -20,7 +20,7 @@ class AppPrimaryButton extends StatelessWidget {
     this.padding,
     this.compact = false,
     this.icon,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -172,8 +172,7 @@ service cloud.firestore {
     match /schedules/{scheduleId} {
       allow read: if isOfficer()
                   || (isDriver()
-                      && resource.data.assignedDriverUid == request.auth.uid
-                      && validScheduleAssignment(resource.data));
+                      && resource.data.assignedDriverUid == request.auth.uid);
       allow create: if isOfficer()
                     && validScheduleAssignment(request.resource.data)
                     && scheduleHasMatchingProjection(scheduleId);
@@ -325,11 +324,12 @@ service cloud.firestore {
 
 
     // Member 03 requests keep their existing collection/owner field.
+    // Both residents and drivers may create and manage their own pickup requests.
     // Only an Officer assigns a verified Auth UID and vehicle.
     match /special_pickups/{requestId} {
-      allow read: if isOfficer() || (isResident() && resource.data.userId == request.auth.uid);
+      allow read: if isOfficer() || ((isResident() || isDriver()) && resource.data.userId == request.auth.uid);
       allow get: if isDriver() && resource.data.assignedDriverUid == request.auth.uid;
-      allow create: if isResident()
+      allow create: if (isResident() || isDriver())
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.requestId == requestId
                     && request.resource.data.status in ['Pending', 'pending']
@@ -337,14 +337,14 @@ service cloud.firestore {
       allow update: if (isOfficer()
                         && request.resource.data.userId == resource.data.userId
                         && request.resource.data.requestId == resource.data.requestId)
-                    || (isResident() && resource.data.userId == request.auth.uid
+                    || ((isResident() || isDriver()) && resource.data.userId == request.auth.uid
                         && resource.data.status in ['Pending', 'pending']
                         && request.resource.data.status in ['Pending', 'pending', 'Cancelled', 'cancelled']
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                           'notes', 'address', 'scheduledDate', 'timeSlot', 'photoUrls', 'status'
                         ]));
-      allow delete: if isOfficer() || (isResident() && resource.data.userId == request.auth.uid
-                                      && resource.data.status in ['Pending', 'pending']);
+      allow delete: if isOfficer() || ((isResident() || isDriver()) && resource.data.userId == request.auth.uid
+                                       && resource.data.status in ['Pending', 'pending']);
     }
 
     function tripSource(trip) {
@@ -385,11 +385,10 @@ service cloud.firestore {
     match /driver_trips/{tripId} {
       allow list: if isOfficer()
                   || (isDriver()
-                      && resource.data.assignedDriverUid == request.auth.uid
-                      && validTrip(resource.data));
+                      && resource.data.assignedDriverUid == request.auth.uid);
       allow get: if isOfficer()
-                  || (isDriver() && resource.data.assignedDriverUid == request.auth.uid && validTrip(resource.data))
-                  || (isResident() && resource.data.residentId == request.auth.uid && validTrip(resource.data));
+                  || (isDriver() && resource.data.assignedDriverUid == request.auth.uid)
+                  || ((isResident() || isDriver()) && resource.data.residentId == request.auth.uid && validTrip(resource.data));
       allow create: if isOfficer() && validTrip(request.resource.data) && validProjection(request.resource.data)
                     && tripId == request.resource.data.requestCollection + '_' + request.resource.data.requestId;
       allow update: if (isOfficer() && validTrip(request.resource.data) && validProjection(request.resource.data)

@@ -91,6 +91,11 @@ class MissedReportService {
         }
         final match = _mockReports.where((r) => r.reportId == reportId);
         return match.isNotEmpty ? match.first : null;
+      }).handleError((_) {
+        // Firestore read failed (e.g. permission-denied) — fall back to the
+        // in-memory cache so the details screen still shows the just-created report.
+        final match = _mockReports.where((r) => r.reportId == reportId);
+        return match.isNotEmpty ? match.first : null;
       });
     } catch (_) {
       final match = _mockReports.where((r) => r.reportId == reportId);

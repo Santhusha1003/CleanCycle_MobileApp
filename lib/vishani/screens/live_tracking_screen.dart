@@ -118,6 +118,12 @@ class _TrackingBodyState extends State<_TrackingBody> {
       final point = driver?.hasLocation == true
           ? LatLng(driver!.currentLatitude!, driver.currentLongitude!)
           : null;
+      // Default area coordinates (Kaduwela / Colombo area) when driver GPS is not live yet
+      final defaultCenter = data.addressZone.toLowerCase().contains('kaduwela')
+          ? const LatLng(6.9355, 79.9845)
+          : const LatLng(6.9271, 79.8612);
+      final centerPoint = point ?? defaultCenter;
+
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -149,27 +155,27 @@ class _TrackingBodyState extends State<_TrackingBody> {
                 ],
               ),
             ),
-          if (point != null) ...[
-            SizedBox(
-              height: 340,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Stack(
-                  children: [
-                    FlutterMap(
-                      mapController: _mapController,
-                      options: MapOptions(
-                        initialCenter: point,
-                        initialZoom: 14.5,
+          SizedBox(
+            height: 340,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: centerPoint,
+                      initialZoom: 14.5,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.cleancycle.mobileapp',
                       ),
-                      children: [
-                        TileLayer(
-                          urlTemplate:
-                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.cleancycle.mobileapp',
-                        ),
-                        MarkerLayer(
-                          markers: [
+                      MarkerLayer(
+                        markers: [
+                          if (point != null)
                             Marker(
                               point: point,
                               width: 48,
@@ -181,26 +187,78 @@ class _TrackingBodyState extends State<_TrackingBody> {
                                   color: Colors.white,
                                 ),
                               ),
+                            )
+                          else
+                            Marker(
+                              point: centerPoint,
+                              width: 48,
+                              height: 48,
+                              child: const CircleAvatar(
+                                backgroundColor: Color(0xFF2E7D32),
+                                child: Icon(
+                                  Icons.location_on,
+                                  color: Colors.white,
+                                  size: 26,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: IconButton.filledTonal(
+                      tooltip: 'Recenter',
+                      onPressed: () => _mapController.move(centerPoint, 15),
+                      icon: const Icon(Icons.my_location),
+                    ),
+                  ),
+                  if (point == null)
+                    Positioned(
+                      bottom: 12,
+                      left: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.75),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.sensors_outlined,
+                              color: Colors.white70,
+                              size: 16,
+                            ),
+                            SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                'Waiting for live vehicle GPS signal...',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: IconButton.filledTonal(
-                        tooltip: 'Recenter',
-                        onPressed: () => _mapController.move(point, 15),
-                        icon: const Icon(Icons.my_location),
                       ),
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-          ],
+          ),
+          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(

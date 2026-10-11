@@ -130,9 +130,9 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (modalContext, setModalState) {
             return Container(
-              height: MediaQuery.of(context).size.height * 0.88,
+              height: MediaQuery.of(modalContext).size.height * 0.88,
               decoration: const BoxDecoration(
                 color: AppColors.white,
                 borderRadius: BorderRadius.only(
@@ -279,7 +279,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                                       : 'Last: ${_formatDate(lastServiceDate!)}',
                                   onPressed: () async {
                                     final picked = await showDatePicker(
-                                      context: context,
+                                      context: modalContext,
                                       initialDate:
                                           lastServiceDate ?? DateTime.now(),
                                       firstDate: DateTime(2000),
@@ -301,7 +301,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                                       : 'Next: ${_formatDate(nextServiceDate!)}',
                                   onPressed: () async {
                                     final picked = await showDatePicker(
-                                      context: context,
+                                      context: modalContext,
                                       initialDate:
                                           nextServiceDate ?? DateTime.now(),
                                       firstDate: DateTime(2000),
@@ -385,8 +385,9 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                                 }
 
                                 if (success) {
-                                  if (!mounted) return;
+                                  if (!sheetContext.mounted) return;
                                   Navigator.pop(sheetContext, success);
+                                  if (!mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(message),
@@ -395,8 +396,8 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                                   );
                                   await _loadVehicles();
                                 } else {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  if (!sheetContext.mounted) return;
+                                  ScaffoldMessenger.of(sheetContext).showSnackBar(
                                     SnackBar(
                                       content: Text(message),
                                       backgroundColor: AppColors.error,
@@ -647,7 +648,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                 Expanded(
                   child: ListView.separated(
                     itemCount: _filteredVehicles.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final vehicle = _filteredVehicles[index];
                       return AppCard(
@@ -772,7 +773,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
 }
 
 class InfoChip extends StatelessWidget {
-  const InfoChip({required this.label});
+  const InfoChip({super.key, required this.label});
 
   final String label;
 

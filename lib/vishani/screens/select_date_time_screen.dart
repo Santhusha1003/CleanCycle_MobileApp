@@ -84,46 +84,47 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _timeSlots.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final slot = _timeSlots[index];
-                      final isSelected = _selectedSlot == slot;
+                  RadioGroup<String>(
+                    groupValue: _selectedSlot,
+                    onChanged: (val) {
+                      if (val != null) setState(() => _selectedSlot = val);
+                    },
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _timeSlots.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final slot = _timeSlots[index];
+                        final isSelected = _selectedSlot == slot;
 
-                      return InkWell(
-                        onTap: () => setState(() => _selectedSlot = slot),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isSelected
-                                  ? const Color(0xFF2E7D32)
-                                  : Colors.grey.shade200,
-                              width: isSelected ? 1.5 : 1,
+                        return InkWell(
+                          onTap: () => setState(() => _selectedSlot = slot),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
                             ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Radio<String>(
-                                    value: slot,
-                                    groupValue: _selectedSlot,
-                                    activeColor: const Color(0xFF2E7D32),
-                                    onChanged: (val) {
-                                      if (val != null) setState(() => _selectedSlot = val);
-                                    },
-                                  ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFF2E7D32)
+                                    : Colors.grey.shade200,
+                                width: isSelected ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Radio<String>(
+                                      value: slot,
+                                      activeColor: const Color(0xFF2E7D32),
+                                    ),
                                   Text(
                                     slot,
                                     style: TextStyle(
@@ -144,6 +145,7 @@ class _SelectDateTimeScreenState extends State<SelectDateTimeScreen> {
                       );
                     },
                   ),
+                ),
                 ],
               ),
             ),

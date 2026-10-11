@@ -436,7 +436,7 @@ class _TrackingDashboardScreenState extends State<TrackingDashboardScreen> {
                   height: 70,
                   width: 70,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
+                  errorBuilder: (_, _, _) =>
                       const Icon(Icons.eco, size: 48, color: Color(0xFF2E7D32)),
                 ),
               ),

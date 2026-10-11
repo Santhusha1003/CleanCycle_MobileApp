@@ -11,14 +11,14 @@ class AppInfoCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const AppInfoCard({
-    Key? key,
+    super.key,
     this.leading,
     required this.title,
     this.subtitle,
     this.trailing,
     this.padding,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +56,7 @@ class AppInfoCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (trailing != null) trailing!,
+              ?trailing,
             ],
           ),
         ),

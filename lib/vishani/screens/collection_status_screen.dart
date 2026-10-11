@@ -154,7 +154,7 @@ class _CollectionStatusScreenState extends State<CollectionStatusScreen> {
                         boxShadow: isCurrent
                             ? [
                                 BoxShadow(
-                                  color: const Color(0xFF2E7D32).withOpacity(0.4),
+                                  color: const Color(0xFF2E7D32).withValues(alpha: 0.4),
                                   blurRadius: 8,
                                   spreadRadius: 2,
                                 )

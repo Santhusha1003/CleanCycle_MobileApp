@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +9,7 @@ import '../services/special_pickup_service.dart';
 import 'request_submitted_screen.dart';
 import 'package:provider/provider.dart';
 import '../../features/auth/presentation/auth_controller.dart';
+import '../../features/auth/data/user_repository.dart';
 
 class PickupDetailsScreen extends StatefulWidget {
   final String selectedWasteType;
@@ -109,10 +111,28 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
 
     try {
       final uid = context.read<AuthController>().firebaseUser?.uid;
-      if (uid == null) throw StateError('Please sign in first.');
+      final firebaseUser = context.read<AuthController>().firebaseUser;
+      if (uid == null || firebaseUser == null) {
+        throw StateError('Please sign in first.');
+      }
       if (_address.trim().isEmpty) {
         throw StateError('Enter your pickup address.');
       }
+
+      // Ensure the user profile document exists in Firestore with role 'resident'
+      // before writing to special_pickups. The Firestore rule calls getRole()
+      // which reads users/{uid}.role — if that document is missing or lacks the
+      // 'resident' role, the write will be permission-denied.
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      if (!userDoc.exists) {
+        // Profile missing (can happen with Google sign-in if ensureResidentProfile
+        // failed silently). Re-run the profile creation before proceeding.
+        await UserRepository().ensureResidentProfile(firebaseUser);
+      }
+
       final newPickup = SpecialPickupModel(
         requestId: '',
         userId: uid,
@@ -140,9 +160,17 @@ class _PickupDetailsScreenState extends State<PickupDetailsScreen> {
       }
     } catch (e) {
       if (mounted) {
+        String message = 'Submission error: $e';
+        if (e is FirebaseException && e.code == 'permission-denied') {
+          message =
+              'Permission denied. Your account does not have permission to submit pickup requests. '
+              'Please verify that updated Firestore security rules have been deployed.';
+        } else if (e is StateError) {
+          message = e.message;
+        }
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Submission error: $e')));
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } finally {
       if (mounted) {

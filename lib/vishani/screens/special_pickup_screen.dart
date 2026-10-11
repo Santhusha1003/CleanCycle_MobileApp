@@ -67,7 +67,7 @@ class _SpecialPickupScreenState extends State<SpecialPickupScreen> {
                   height: 190,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                  errorBuilder: (_, _, _) => Container(
                     height: 180,
                     decoration: BoxDecoration(
                       color: const Color(0xFFE8F5E9),

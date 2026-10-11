@@ -302,6 +302,27 @@ class _MissedDetailsScreenState extends State<MissedDetailsScreen> {
             return const Center(child: CircularProgressIndicator(color: Color(0xFF2E7D32)));
           }
 
+          // Stream emitted an error (e.g. Firestore permission-denied on read).
+          // The service's handleError already converts this to a null/mock value,
+          // but guard here as a belt-and-suspenders safety net.
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text('Could not load report. Please try again.'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Back'),
+                  ),
+                ],
+              ),
+            );
+          }
+
           final report = snapshot.data;
           if (report == null) {
             return Center(

@@ -1,10 +1,4 @@
-// Placeholder – Notification Management UI will be implemented in a future task
+import { PageHeader, Capability } from '../components/Operations.jsx'
 export default function NotificationsPage() {
-  return (
-    <div className="page-placeholder">
-      <h1 className="page-placeholder__title">Notification Management</h1>
-      <p className="page-placeholder__subtitle">Send and manage push notifications to residents and drivers.</p>
-      <span className="page-placeholder__chip">🚧 Coming soon</span>
-    </div>
-  )
+  return <><PageHeader title="Notification Management" subtitle="Notification capabilities and delivery readiness." /><Capability title="Notification sending is not configured" description="The mobile service requests FCM permission and obtains a device token. There is no notification history collection or trusted sending service in this project." prerequisites={['Define notification records and municipal read/create permissions.', 'Provide a trusted backend that sends FCM messages and reports delivery results.']} /><section className="op-card"><h2>Delivery status</h2><p>Unavailable. Creating a Firestore record would not confirm push delivery. No notification or token data is queried.</p></section></>
 }

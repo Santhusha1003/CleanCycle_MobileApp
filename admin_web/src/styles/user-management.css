@@ -1,0 +1,21 @@
+.user-management { max-width: 1100px; }
+.user-management .account-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+.user-management .account-heading h2 { margin: 6px 0 0; }
+.user-management .account-kicker { color: #52685c; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.user-management .account-label { display: inline-block; border-radius: 6px; background: #eaf5ee; color: #1e5e3f; padding: 6px 10px; font-size: 12px; font-weight: 600; }
+.user-management dd { overflow-wrap: anywhere; }
+.user-management .account-source p { margin: 12px 0; font-size: 13px; color: #52685c; }
+.user-management .account-footnote { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid #e6ede8; color: #52685c; font-size: 12px; line-height: 1.6; }
+.user-management .account-intro { color: #52685c; font-size: 13px; }
+.user-management .account-roles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; list-style: none; padding: 0; margin: 24px 0 0; }
+.user-management .account-roles h3 { margin: 0 0 8px; font-size: 14px; color: #1e5e3f; }
+.user-management .account-roles p { margin: 0; color: #52685c; font-size: 13px; line-height: 1.6; }
+.user-management .account-directory { padding: 4px 2px; color: #52685c; font-size: 12px; line-height: 1.6; }
+.user-management .account-directory strong { color: #163b2f; }
+.user-management .account-directory p { margin: 4px 0; }
+.user-management .account-error { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.user-management .account-error p { color: #9c2929; }
+@media (max-width: 640px) {
+  .user-management .account-heading { align-items: flex-start; flex-direction: column; }
+  .user-management .account-roles { grid-template-columns: 1fr; gap: 18px; }
+}

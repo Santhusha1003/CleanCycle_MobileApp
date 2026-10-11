@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { signOut } from 'firebase/auth'
+import { auth } from '../services/firebase.js'
 import { NavLink } from 'react-router-dom'
 
 // ── SVG icon helpers (inline – no icon library needed) ───────────────────────
@@ -97,14 +100,6 @@ function IconSpecialRequest() {
   )
 }
 
-function IconTrackRequests() {
-  return (
-    <svg className="sidebar__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-    </svg>
-  )
-}
-
 function IconNotification() {
   return (
     <svg className="sidebar__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -154,7 +149,6 @@ const NAV_ITEMS = [
   { to: '/schedule',          label: 'Collection Schedule',                 Icon: IconCalendar       },
   { to: '/live-tracking',     label: 'Live Collection Tracking',            Icon: IconLiveTracking   },
   { to: '/special-requests',  label: 'Request a Waste Collection (Special)', Icon: IconSpecialRequest },
-  { to: '/track-requests',    label: 'Track Requests',                      Icon: IconTrackRequests  },
   { to: '/notifications',     label: 'Notification Management',             Icon: IconNotification   },
   { to: '/complaints',        label: 'Complaints & Feedback',               Icon: IconComplaints     },
   { to: '/reports',           label: 'Reports',                             Icon: IconReports        },
@@ -163,10 +157,9 @@ const NAV_ITEMS = [
 // ── Sidebar component ─────────────────────────────────────────────────────────
 
 export default function Sidebar() {
-  function handleLogout() {
-    // Placeholder – will be wired to Firebase Auth sign-out by Member 01
-    // TODO: implement logout
-    console.log('Logout triggered')
+  const [error, setError] = useState('')
+  async function handleLogout() {
+    try { await signOut(auth) } catch { setError('Sign-out failed. Please retry.') }
   }
 
   return (
@@ -201,7 +194,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Logout */}
-      <div className="sidebar__footer">
+      <div className="sidebar__footer">{error && <p role="alert" style={{ color: '#ffe0e0', fontSize: 12 }}>{error}</p>}
         <button
           type="button"
           className="sidebar__logout"

@@ -10,12 +10,11 @@ import RoutesPage       from './pages/RoutesPage'
 import DriversPage      from './pages/DriversPage'
 import ReportsPage      from './pages/ReportsPage'
 
-// ── New placeholder pages ─────────────────────────────────────────────────────
+// ── Operational and capability pages ─────────────────────────────────────────────────────
 import UserManagementPage    from './pages/UserManagementPage'
 import CollectionSchedulePage from './pages/CollectionSchedulePage'
 import LiveTrackingPage      from './pages/LiveTrackingPage'
 import SpecialRequestsPage   from './pages/SpecialRequestsPage'
-import TrackRequestsPage     from './pages/TrackRequestsPage'
 import NotificationsPage     from './pages/NotificationsPage'
 import ComplaintsPage        from './pages/ComplaintsPage'
 
@@ -54,16 +53,13 @@ export default function App() {
         {/* 9. Request a Waste Collection (Special) */}
         <Route path="/special-requests" element={<SpecialRequestsPage />} />
 
-        {/* 10. Track Requests */}
-        <Route path="/track-requests"   element={<TrackRequestsPage />} />
-
-        {/* 11. Notification Management */}
+        {/* 10. Notification Management */}
         <Route path="/notifications"    element={<NotificationsPage />} />
 
-        {/* 12. Complaints & Feedback */}
+        {/* 11. Complaints & Feedback */}
         <Route path="/complaints"       element={<ComplaintsPage />} />
 
-        {/* 13. Reports */}
+        {/* 12. Reports */}
         <Route path="/reports"          element={<ReportsPage />} />
       </Route>
 

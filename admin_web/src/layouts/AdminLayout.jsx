@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react'
+import { auth } from '../services/firebase.js'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import '../styles/admin-layout.css'
+import '../styles/operations.css'
 
 // Map route paths to human-readable page titles for the top bar
 const PAGE_TITLES = {
@@ -13,7 +16,6 @@ const PAGE_TITLES = {
   '/schedule':         'Collection Schedule',
   '/live-tracking':    'Live Collection Tracking',
   '/special-requests': 'Request a Waste Collection (Special)',
-  '/track-requests':   'Track Requests',
   '/notifications':    'Notification Management',
   '/complaints':       'Complaints & Feedback',
   '/reports':          'Reports',
@@ -21,19 +23,22 @@ const PAGE_TITLES = {
 
 export default function AdminLayout() {
   const { pathname } = useLocation()
+  const [navPath, setNavPath] = useState(null)
+  const navOpen = navPath === pathname
   const pageTitle = PAGE_TITLES[pathname] ?? 'CleanCycle Admin'
+  useEffect(() => { document.title = `${pageTitle} · CleanCycle` }, [pageTitle])
 
   return (
-    <div className="admin-layout">
+    <div className={`admin-layout${navOpen ? ' nav-open' : ''}`}>
       <Sidebar />
 
       <div className="admin-main">
         {/* Top bar */}
         <header className="admin-topbar">
-          <span className="admin-topbar__title">{pageTitle}</span>
+          <button className="op-button op-button--secondary menu-toggle" aria-label="Toggle navigation" aria-expanded={navOpen} onClick={() => setNavPath(navOpen ? null : pathname)}>Menu</button><span className="admin-topbar__title">{pageTitle}</span>
           <div className="admin-topbar__right">
-            <span className="admin-topbar__badge">Municipal Officer</span>
-            <div className="admin-topbar__avatar" aria-label="User avatar">MO</div>
+            <span className="admin-topbar__badge">{auth.currentUser?.displayName || auth.currentUser?.email || 'Municipal Officer'}</span>
+            <div className="admin-topbar__avatar" aria-label="Municipal Officer account">MO</div>
           </div>
         </header>
 

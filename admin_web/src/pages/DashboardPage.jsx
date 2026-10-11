@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import '../styles/dashboard.css'
+import useCounts from '../hooks/useCounts.js'
+import { LIST_LIMIT } from '../services/firestoreService.js'
 import {
   subscribeVehicles,
   subscribeDrivers,
@@ -17,7 +19,6 @@ const QUICK_ACTIONS = [
   { label: 'Collection Schedule', to: '/schedule', icon: 'calendar' },
   { label: 'Live Collection Tracking', to: '/live-tracking', icon: 'tracking' },
   { label: 'Request a Waste Collection', to: '/special-requests', icon: 'request' },
-  { label: 'Track Requests', to: '/track-requests', icon: 'tracking' },
   { label: 'Notifications', to: '/notifications', icon: 'notification' },
   { label: 'Complaints & Feedback', to: '/complaints', icon: 'complaint' },
   { label: 'Reports', to: '/reports', icon: 'report' },
@@ -93,7 +94,7 @@ function RecentActivityCard({ source, now }) {
     return !date || date <= now
   }).sort((a, b) => (
     (activityDate(b)?.getTime() ?? 0) - (activityDate(a)?.getTime() ?? 0)
-    || a.scheduleId.localeCompare(b.scheduleId)
+    || String(a.scheduleId || a._docId).localeCompare(String(b.scheduleId || b._docId))
   )).slice(0, 6)
 
   return (
@@ -117,8 +118,8 @@ function RecentActivityCard({ source, now }) {
                     const date = activityDate(row)
                     const dateLabel = toDate(row.updatedAt) ? 'Updated' : toDate(row.createdAt) ? 'Created' : 'Collection date'
                     return (
-                      <tr key={row.scheduleId}>
-                        <td><span className="dash-activity-type">Collection schedule</span><Link to="/routes">{row.scheduleId}</Link></td>
+                      <tr key={row._docId}>
+                        <td><span className="dash-activity-type">Collection schedule</span><Link to={`/schedule?id=${encodeURIComponent(row._docId)}`}>{row.scheduleId || row._docId}</Link></td>
                         <td>{row.zone || '—'}</td>
                         <td>{date ? <><span className="dash-activity-type">{dateLabel}</span><time dateTime={date.toISOString()}>{activityFormatter.format(date)}</time></> : '—'}</td>
                         <td><span className={`badge badge--${status?.mod ?? 'unknown'}`}>{status?.label ?? (row.status || 'Unknown')}</span></td>
@@ -129,14 +130,17 @@ function RecentActivityCard({ source, now }) {
               </div>
             )}
       <div className="dash-activity-empty-grid">
-        <div><h3>Special Collection Requests</h3><p>No recent activity</p></div>
-        <div><h3>Complaints & Feedback</h3><p>No recent activity</p></div>
+        <div><h3>Special Collection Requests</h3><p>Backend schema unavailable</p></div>
+        <div><h3>Complaints & Feedback</h3><p>Backend schema unavailable</p></div>
       </div>
     </section>
   )
 }
 
 export default function DashboardPage() {
+  const { counts, refresh } = useCounts()
+  const total = name => counts[name]?.value ?? '—'
+  const totalNote = name => counts[name]?.error ? 'Count unavailable: ' + counts[name].error : counts[name] ? 'Firebase total · refreshes each minute' : 'Loading total…'
   const [sources, setSources] = useState(() => Object.fromEntries(
     Object.keys(SUBSCRIPTIONS).map(name => [name, { data: [], status: 'loading', error: null }]),
   ))
@@ -150,7 +154,7 @@ export default function DashboardPage() {
         if (!disposed) setSources(previous => ({ ...previous, [name]: value }))
       }
       return subscribe(
-        data => update({ data, status: 'ready', error: null }),
+        (data, meta) => update({ data, ...meta, status: 'ready', error: null }),
         error => update({ data: [], status: 'error', error: error.message || 'Unable to load data.' }),
       )
     })
@@ -159,7 +163,7 @@ export default function DashboardPage() {
     return () => { disposed = true; unsubscribers.forEach(unsubscribe => unsubscribe()); clearInterval(timer) }
   }, [])
 
-  const { vehicles, drivers, staff, schedules } = sources
+  const { vehicles, drivers, schedules } = sources
   const todaySchedules = schedules.data.filter(schedule => {
     const date = toDate(schedule.collectionDate)
     return date && dayFormatter.format(date) === today
@@ -177,20 +181,23 @@ export default function DashboardPage() {
   // records have no Admin Web data integration yet. Do not infer them from the
   // four operational collections or request broader user/profile permissions.
   const summary = [
-    { label: 'Total Users', value: 0, footer: 'No user summary available', icon: 'users' },
-    { label: 'Total Vehicles', value: metric(vehicles, vehicles.data.length), footer: footer(vehicles, `${availableVehicles} available`), icon: 'vehicle' },
-    { label: 'Active Drivers', value: metric(drivers, activeDrivers), footer: footer(drivers, 'Available or assigned'), icon: 'driver', iconBg: '#deeeff' },
-    { label: 'Staff Members', value: metric(staff, staff.data.length), footer: footer(staff, `${staff.data.filter(member => member.status === 'active').length} active`), icon: 'users', iconBg: '#fff3cd' },
+    { label: 'Total Users', value: '—', footer: 'Directory access restricted', icon: 'users' },
+    { label: 'Total Vehicles', value: total('vehicles'), footer: totalNote('vehicles'), icon: 'vehicle' },
+    { label: 'Total Drivers', value: total('drivers'), footer: totalNote('drivers'), icon: 'driver', iconBg: '#deeeff' },
+    { label: 'Staff Members', value: total('staff'), footer: totalNote('staff'), icon: 'users', iconBg: '#fff3cd' },
     { label: "Today's Collections", value: metric(schedules, todaySchedules.length), footer: footer(schedules, `${countStatus('completed')} completed`), icon: 'calendar' },
-    { label: 'Pending Waste Requests', value: 0, footer: 'No request data available', icon: 'request', iconBg: '#fff3cd' },
-    { label: 'Open Complaints', value: 0, footer: 'No complaint data available', icon: 'complaint', iconBg: '#fee8e8' },
-    { label: 'Unread Notifications', value: 0, footer: 'No notification data available', icon: 'notification', iconBg: '#deeeff' },
+    { label: 'Pending Waste Requests', value: '—', footer: 'No request data available', icon: 'request', iconBg: '#fff3cd' },
+    { label: 'Open Complaints', value: '—', footer: 'No complaint data available', icon: 'complaint', iconBg: '#fee8e8' },
+    { label: 'Missed-collection Reports', value: total('missedCollectionReports'), footer: totalNote('missedCollectionReports'), icon: 'report', iconBg: '#deeeff' },
   ]
+  const upcoming = schedules.data.filter(row => { const date = toDate(row.collectionDate); return date && dayFormatter.format(date) >= today && row.status === 'scheduled' }).length
   const operations = [
-    { label: 'Available Vehicles', value: metric(vehicles, availableVehicles), footer: footer(vehicles, 'Ready for assignment'), icon: 'vehicle' },
-    { label: 'Vehicles in Maintenance', value: metric(vehicles, maintenanceVehicles), footer: footer(vehicles, 'Currently in maintenance'), icon: 'vehicle', iconBg: '#fff3cd' },
-    { label: 'Active Drivers', value: metric(drivers, activeDrivers), footer: footer(drivers, 'Available or assigned'), icon: 'driver', iconBg: '#deeeff' },
-    { label: 'Staff on Duty', value: 0, footer: 'No duty records available', icon: 'users' },
+    { label: 'Upcoming Schedules (loaded)', value: metric(schedules, upcoming), footer: footer(schedules, 'Scheduled today or later'), icon: 'calendar' },
+    { label: 'Total Schedules', value: total('schedules'), footer: totalNote('schedules'), icon: 'calendar' },
+    { label: 'Available Vehicles (loaded)', value: metric(vehicles, availableVehicles), footer: footer(vehicles, 'Ready for assignment'), icon: 'vehicle' },
+    { label: 'Vehicles in Maintenance (loaded)', value: metric(vehicles, maintenanceVehicles), footer: footer(vehicles, 'Currently in maintenance'), icon: 'vehicle', iconBg: '#fff3cd' },
+    { label: 'Active Drivers (loaded)', value: metric(drivers, activeDrivers), footer: footer(drivers, 'Available or assigned'), icon: 'driver', iconBg: '#deeeff' },
+    { label: 'Staff on Duty', value: '—', footer: 'No duty records available', icon: 'users' },
   ]
   const requestStatuses = [
     { label: 'Pending Special Collection Requests', color: '#e5a623' },
@@ -204,9 +211,11 @@ export default function DashboardPage() {
     <div className="portal-dashboard">
       <header className="dash-header">
         <h1 className="dash-header__title">Dashboard</h1>
-        <p className="dash-header__subtitle">Overview of CleanCycle waste collection and municipal operations.</p>
+        <p className="dash-header__subtitle">Overview of CleanCycle waste collection and municipal operations.</p><button className="op-button op-button--secondary" onClick={refresh}>Refresh totals</button>
       </header>
+      <p className="dash-section-note">Operational status summaries use up to {LIST_LIMIT} records per collection. Total cards use server counts. Asia/Colombo time.</p>
       {Object.values(sources).some(source => source.status === 'loading') && <p className="dash-notice" role="status">Loading Firestore data…</p>}
+      {Object.values(sources).some(source => source.cached) && <p className="dash-notice">Some records are cached; current status requires a Firebase connection.</p>}
       {Object.entries(sources).some(([, source]) => source.error) && (
         <div className="dash-notice dash-notice--error" role="alert">
           {Object.entries(sources).filter(([, source]) => source.error).map(([name, source]) => <p key={name}>{name.charAt(0).toUpperCase() + name.slice(1)}: {source.error}</p>)}
@@ -239,16 +248,16 @@ export default function DashboardPage() {
             <div><dt>Total Routes Today</dt><dd>{metric(schedules, todaySchedules.length)}</dd></div>
           </dl>
           <p className="dash-section-note">Active routes are today&apos;s collections in progress.</p>
-          {schedules.status === 'ready' && todaySchedules.length === 0 && <p className="dash-section-note">No collections scheduled for today.</p>}
+          {schedules.status === 'ready' && !schedules.cached && todaySchedules.length === 0 && <p className="dash-section-note">No collections scheduled for today.</p>}
         </section>
 
         <section className="status-card" aria-labelledby="requests-heading">
           <h2 className="dash-section-title" id="requests-heading">Requests & Complaints</h2>
           <div className="status-card__rows">{requestStatuses.map(item => <div className="status-row" key={item.label}>
             <span className="status-row__dot" style={{ background: item.color }} aria-hidden="true" />
-            <span className="status-row__label">{item.label}</span><span className="status-row__count">0</span>
+            <span className="status-row__label">{item.label}</span><span className="status-row__count">—</span>
           </div>)}</div>
-          <p className="dash-section-note">No request or complaint data available.</p>
+          <p className="dash-section-note">Request and complaint schemas are unavailable. These metrics cannot be calculated.</p>
         </section>
       </div>
 

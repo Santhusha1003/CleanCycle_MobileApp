@@ -1,51 +1,47 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter } from 'react-router-dom'
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import App from '../App.jsx'
-import { ensureDevAuth } from '../services/firebase.js'
+import { auth, ensureOfficer } from '../services/firebase.js'
+import { Message } from './Operations.jsx'
+import '../styles/admin-layout.css'
+import '../styles/operations.css'
 
-/**
- * Bootstrap anonymous Firebase auth before mounting the React app.
- * This ensures request.auth != null is satisfied for all Firestore calls.
- *
- * TEMPORARY DEVELOPMENT AUTHENTICATION — must later be replaced by Member 01's
- * proper authentication and role-based access system.
- */
 export default function AuthenticatedApp() {
-  const [authState, setAuthState] = useState({ status: 'loading' })
-  const [attempt, setAttempt] = useState(0)
-
+  const [session, setSession] = useState({ status: 'loading' })
+  const [email, setEmail] = useState(''), [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false), [error, setError] = useState('')
   useEffect(() => {
-    let cancelled = false
-    ensureDevAuth().then(() => {
-      if (!cancelled) setAuthState({ status: 'ready' })
-    }).catch((error) => {
-      if (cancelled) return
-      console.error('[DEV AUTH] Anonymous sign-in failed:', error)
-      setAuthState({ status: 'error', error })
+    let generation = 0
+    const unsub = onAuthStateChanged(auth, async user => {
+      const attempt = ++generation
+      if (!user || user.isAnonymous) { setSession({ status: 'signed-out' }); return }
+      setSession({ status: 'loading' })
+      try { await ensureOfficer(); if (generation === attempt) setSession({ status: 'ready' }) }
+      catch (ex) { if (generation === attempt) setSession({ status: 'denied', error: ex.message }) }
     })
-    return () => { cancelled = true }
-  }, [attempt])
-
-  if (authState.status === 'loading') {
-    return <p role="status">Signing in to Admin Web…</p>
+    return () => { generation++; unsub() }
+  }, [])
+  async function login(event) {
+    event.preventDefault(); setBusy(true); setError('')
+    try { await signInWithEmailAndPassword(auth, email.trim(), password); setPassword('') }
+    catch (ex) { setError(ex.code === 'auth/operation-not-allowed' ? 'Email/password sign-in is not enabled for this Firebase project. Ask the authentication administrator to configure officer sign-in.' : 'Sign-in failed. Check your credentials and connection.'); setPassword('') }
+    finally { setBusy(false) }
   }
-
-  if (authState.status === 'error') {
-    const { error } = authState
-    const message = error.code === 'auth/operation-not-allowed'
-      ? 'Enable Anonymous sign-in in Firebase Authentication for cleancyclemobileapp, then retry.'
-      : `Unable to sign in to Admin Web. ${error.message || 'Check your connection and retry.'}`
-    return (
-      <div role="alert">
-        <p>{message}</p>
-        <button type="button" onClick={() => {
-          setAuthState({ status: 'loading' })
-          setAttempt((value) => value + 1)
-        }}>Retry sign-in</button>
-      </div>
-    )
-  }
-
-  return <BrowserRouter><App /></BrowserRouter>
+  if (session.status === 'ready') return <BrowserRouter><App /></BrowserRouter>
+  return <main className="auth-screen"><section className="auth-card">
+    <span className="eyebrow">CleanCycle · Municipal operations</span>
+    <h1>Admin portal</h1>
+    {session.status === 'loading' ? <Message>Checking your account access…</Message> : session.status === 'denied' ? <>
+      <Message type="error">{session.error}</Message>
+      <button className="op-button" onClick={async () => { try { await signOut(auth) } catch { setError('Unable to sign out. Please retry.') } }}>Use another account</button>
+    </> : <form onSubmit={login}>
+      <p>Sign in with your existing Municipal Officer account.</p>
+      <label>Email<input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} /></label>
+      <label>Password<input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} /></label>
+      <button className="op-button" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+      <p className="muted">Officer access must be provisioned by the account administrator.</p>
+    </form>}
+    {error && <Message type="error">{error}</Message>}
+  </section></main>
 }
-

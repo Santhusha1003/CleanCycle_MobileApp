@@ -1,25 +1,7 @@
-/**
- * Firebase initialization for CleanCycle Admin Web.
- *
- * Uses the same Firebase project as the Flutter mobile app:
- *   Project ID: cleancyclemobileapp
- *
- * These are standard Firebase Web client configuration values — they are
- * safe to include in client-side code. They are NOT admin/service-account
- * credentials.
- *
- * TEMPORARY DEVELOPMENT AUTHENTICATION:
- * Anonymous sign-in is used so that `request.auth != null` is satisfied for
- * the temporary development Firestore rules. Once Member 01 completes Firebase
- * Authentication and role management, replace signInAnonymously() with the
- * proper Municipal Officer sign-in flow.
- * TODO: Replace anonymous auth with role-based auth when Member 01's auth
- * system is ready.
- */
-
 import { getApp, getApps, initializeApp } from 'firebase/app'
-import { getAuth, signInAnonymously } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { getAuth, getIdTokenResult } from 'firebase/auth'
+import { doc, getDoc, getFirestore } from 'firebase/firestore'
+import { isOfficerRole } from './roles.js'
 
 // Firebase Web config — same project as Flutter mobile app
 const firebaseConfig = {
@@ -39,25 +21,14 @@ const app  = getApps().some((app) => app.name === '[DEFAULT]')
 export const auth = getAuth(app)
 export const db   = getFirestore(app)
 
-// TEMPORARY DEVELOPMENT AUTHENTICATION
-// Sign in anonymously so that request.auth != null is satisfied.
-// This mirrors the approach used in the Flutter SplashScreen.
-// Must later be replaced by Member 01's proper authentication and role-based
-// access system. Share one pending sign-in across bootstrap, listeners and CRUD.
-let authPromise = null
-
-export function ensureDevAuth() {
-  if (!authPromise) {
-    authPromise = (async () => {
-      // Restore any persisted session before deciding to create an anonymous user.
-      await auth.authStateReady()
-      if (auth.currentUser) return auth.currentUser
-      const credential = await signInAnonymously(auth)
-      return credential.user
-    })().finally(() => {
-      // Allow retry after failure, or a new sign-in if the session is later lost.
-      authPromise = null
-    })
-  }
-  return authPromise
+// Never provision anonymous users or change roles from the client.
+export async function ensureOfficer() {
+  await auth.authStateReady()
+  const user = auth.currentUser
+  if (!user || user.isAnonymous) throw new Error('Sign in with an existing Municipal Officer account.')
+  const token = await getIdTokenResult(user)
+  if (isOfficerRole(token.claims.role)) return user
+  const profile = await getDoc(doc(db, 'users', user.uid))
+  if (!profile.exists() || !isOfficerRole(profile.data().role)) throw new Error('Municipal Officer access requires an officer role in your existing profile or a trusted custom claim. Contact the account administrator.')
+  return user
 }

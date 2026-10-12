@@ -53,3 +53,7 @@ app.*.map.json
 # Local Admin Web build and dependency artifacts
 /admin_web/node_modules/
 /admin_web/dist/
+
+# Local Firebase schedule-save backups and deployment records
+/backups/firestore-schedule-save/
+/firebase.schedule-save-rollback.json

@@ -127,3 +127,22 @@ test('officer access rejects missing, resident, driver and arbitrary roles', () 
   for (const value of [undefined, null, 'resident', 'driver', 'admin', true]) assert.equal(isOfficerRole(value), false)
   assert.ok(isOfficerRole('officer')); assert.ok(isOfficerRole('municipal_officer'))
 })
+test('special_requests schema enforces required fields, waste types and statuses', () => {
+  const valid = {
+    requestId: 'REQ-1',
+    residentName: 'Kamal Perera',
+    residentPhone: '0771234567',
+    zone: 'Colombo 03',
+    wasteType: 'e_waste',
+    itemDescription: 'Old refrigerator',
+    preferredDate: '2026-10-18',
+    status: 'pending',
+  }
+  const norm = normalizeRecord('special_requests', valid)
+  assert.equal(norm.requestId, 'REQ-1')
+  assert.equal(norm.status, 'pending')
+  assert.throws(() => normalizeRecord('special_requests', { ...valid, wasteType: 'plastic' }), /waste type/)
+  assert.throws(() => normalizeRecord('special_requests', { ...valid, status: 'invalid_status' }), /status/)
+  assert.throws(() => normalizeRecord('special_requests', { ...valid, residentName: '' }), /Resident [Nn]ame/)
+})
+

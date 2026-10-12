@@ -36,9 +36,10 @@ export default function RecordManager({ kind }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState('')
   const [params, setParams] = useSearchParams()
   const selected = source.data.find(row => row._docId === params.get('id'))
-  const extraKey = kind === 'vehicles' ? 'vehicleType' : kind === 'schedules' ? 'wasteType' : 'assignedZone'
-  const rows = source.data.filter(row => (!search || schema.fields.some(key => String(row[key] ?? '').toLowerCase().includes(search.toLowerCase()))) && (!status || row.status === status) && (!extra || row[extraKey] === extra) && (kind !== 'schedules' || (!from && !to) || inDateRange(row.collectionDate, from, to)))
-    .sort((a, b) => kind === 'schedules' ? (dateKey(a.collectionDate) + a.startTime).localeCompare(dateKey(b.collectionDate) + b.startTime) : a._docId.localeCompare(b._docId))
+  const extraKey = kind === 'vehicles' ? 'vehicleType' : (kind === 'schedules' || kind === 'special_requests') ? 'wasteType' : 'assignedZone'
+  const dateField = kind === 'schedules' ? 'collectionDate' : kind === 'special_requests' ? 'preferredDate' : null
+  const rows = source.data.filter(row => (!search || schema.fields.some(key => String(row[key] ?? '').toLowerCase().includes(search.toLowerCase()))) && (!status || row.status === status) && (!extra || row[extraKey] === extra) && (!dateField || (!from && !to) || inDateRange(row[dateField], from, to)))
+    .sort((a, b) => kind === 'schedules' ? (dateKey(a.collectionDate) + (a.startTime || '')).localeCompare(dateKey(b.collectionDate) + (b.startTime || '')) : kind === 'special_requests' ? (dateKey(a.scheduledDate || a.preferredDate) || '').localeCompare(dateKey(b.scheduledDate || b.preferredDate) || '') : a._docId.localeCompare(b._docId))
   function range(period) {
     const today = dateKey(new Date()), start = new Date(today + 'T12:00:00Z')
     if (period === 'week') { const day = (start.getUTCDay() + 6) % 7; start.setUTCDate(start.getUTCDate() - day); const end = new Date(start); end.setUTCDate(end.getUTCDate() + 6); setFrom(dateKey(start)); setTo(dateKey(end)) }
@@ -60,7 +61,7 @@ export default function RecordManager({ kind }) {
       <label>{label(extraKey)}<select value={extra} onChange={e => setExtra(e.target.value)}><option value="">All</option>{[...new Set(source.data.map(row => row[extraKey]).filter(Boolean))].sort().map(value => <option key={value}>{value}</option>)}</select></label>
       <button className="op-button op-button--secondary" onClick={source.retry}>Refresh</button>
     </div>
-    {kind === 'schedules' && <div className="op-toolbar"><DateRange {...{ from, to, setFrom, setTo }} /><button className="op-button op-button--secondary" onClick={() => range('week')}>This week</button><button className="op-button op-button--secondary" onClick={() => range('month')}>This month</button><button className="op-button op-button--secondary" onClick={() => range('all')}>All dates</button><span className="muted">Asia/Colombo · chronological list</span></div>}
+    {(kind === 'schedules' || kind === 'special_requests') && <div className="op-toolbar"><DateRange {...{ from, to, setFrom, setTo }} /><button className="op-button op-button--secondary" onClick={() => range('week')}>This week</button><button className="op-button op-button--secondary" onClick={() => range('month')}>This month</button><button className="op-button op-button--secondary" onClick={() => range('all')}>All dates</button><span className="muted">Asia/Colombo</span></div>}
     {from && to && from > to && <Message type="error">From date must be before To date.</Message>}
     <SourceNotice source={source} />
     {source.status === 'ready' && <DataTable rows={rows} columns={schema.columns} empty={source.cached ? 'No matching records in the cache. Connect to Firebase to confirm.' : source.data.length ? 'No records match these filters.' : `No ${kind} recorded. Add the first ${schema.singular.toLowerCase()}.`} actions={row => <><button className="op-button op-button--secondary" onClick={() => setParams({ id: row._docId })}>View</button><button className="op-button op-button--secondary" onClick={() => { setNotice(''); setModal({ mode: 'edit', row }) }}>Edit</button><button className="op-button op-button--danger" onClick={() => { setError(''); setModal({ mode: 'delete', row }) }}>Delete</button></>} />}

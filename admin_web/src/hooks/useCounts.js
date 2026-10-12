@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { collectionCount } from '../services/firestoreService.js'
-const COLLECTIONS = ['vehicles', 'drivers', 'staff', 'schedules', 'missedCollectionReports']
+const COLLECTIONS = ['vehicles', 'drivers', 'staff', 'schedules', 'missedCollectionReports', 'special_requests']
 export default function useCounts() {
   const [attempt, setAttempt] = useState(0), [counts, setCounts] = useState({})
   useEffect(() => {

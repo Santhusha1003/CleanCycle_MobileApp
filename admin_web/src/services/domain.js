@@ -30,6 +30,15 @@ export const SCHEMAS = {
     fields: ['scheduleId', 'zone', 'collectionDate', 'startTime', 'endTime', 'wasteType', 'status', 'assignedDriverId', 'assignedVehicleId', 'notes'],
     columns: ['scheduleId', 'zone', 'collectionDate', 'startTime', 'endTime', 'wasteType', 'assignedDriverId', 'assignedVehicleId', 'status'], dates: ['collectionDate'],
   },
+  special_requests: {
+    title: 'Special Waste Collection', singular: 'Special Request', id: 'requestId', subtitle: 'Manage and schedule resident on-demand special collection requests.',
+    statuses: ['pending', 'approved', 'scheduled', 'in_progress', 'completed', 'rejected', 'cancelled'],
+    wasteTypes: ['bulky_furniture', 'e_waste', 'construction_debris', 'garden_waste', 'hazardous', 'other'],
+    required: ['requestId', 'residentName', 'residentPhone', 'zone', 'wasteType', 'itemDescription', 'preferredDate'],
+    fields: ['requestId', 'residentName', 'residentPhone', 'address', 'zone', 'wasteType', 'itemDescription', 'estimatedQuantity', 'preferredDate', 'scheduledDate', 'status', 'assignedDriverId', 'assignedVehicleId', 'rejectionReason', 'officerNotes'],
+    columns: ['requestId', 'residentName', 'residentPhone', 'zone', 'wasteType', 'itemDescription', 'preferredDate', 'scheduledDate', 'assignedDriverId', 'assignedVehicleId', 'status'],
+    dates: ['preferredDate', 'scheduledDate'],
+  },
 }
 export function label(key) {
   const names = { _docId: 'Document ID', registrationNumber: 'Registration', capacityKg: 'Capacity (kg)', yearManufactured: 'Year manufactured', assignedDriverId: 'Driver ID', assignedVehicleId: 'Vehicle registration' }
@@ -68,8 +77,10 @@ export function normalizeRecord(kind, input) {
   }
   if (data.yearManufactured != null && !Number.isInteger(data.yearManufactured)) throw new Error('Year must be a whole number.')
   for (const key of schema.dates || []) data[key] = data[key] ? parseDate(data[key]) : null
-  if (kind === 'schedules') {
+  if (kind === 'schedules' || kind === 'special_requests') {
     if (!schema.wasteTypes.includes(data.wasteType)) throw new Error('Select a supported waste type.')
+  }
+  if (kind === 'schedules') {
     for (const key of ['startTime', 'endTime']) if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(data[key])) throw new Error(`${label(key)} must use HH:mm.`)
     if (data.endTime <= data.startTime) throw new Error('End time must be after start time.')
   }
@@ -81,13 +92,14 @@ export function verifyAssignment(kind, data, driver, vehicle) {
   if (data.assignedDriverId) {
     if (!driver || driver.driverId !== data.assignedDriverId || !driver.fullName || !driver.licenseNumber) throw new Error('Driver identity does not match a complete driver record.')
     if (!['available', 'assigned'].includes(driver.status)) throw new Error('Driver is unavailable for assignment.')
-    if (driver.licenseExpiryDate && dateKey(driver.licenseExpiryDate) < dateKey(data.collectionDate || new Date())) throw new Error('Driver licence expires before this assignment.')
+    const assignmentDate = data.scheduledDate || data.preferredDate || data.collectionDate || new Date()
+    if (driver.licenseExpiryDate && dateKey(driver.licenseExpiryDate) < dateKey(assignmentDate)) throw new Error('Driver licence expires before this assignment.')
   }
   if (data.assignedVehicleId) {
     if (!vehicle || vehicle.registrationNumber !== data.assignedVehicleId) throw new Error('Vehicle registration does not match an existing vehicle.')
     if (!['available', 'assigned'].includes(vehicle.status)) throw new Error('Vehicle is unavailable for assignment.')
   }
-  if (kind === 'schedules' && driver && vehicle) {
+  if ((kind === 'schedules' || kind === 'special_requests') && driver && vehicle) {
     if (driver.assignedVehicleId && driver.assignedVehicleId !== vehicle.registrationNumber) throw new Error('Driver is assigned to a different vehicle.')
     if (vehicle.assignedDriverId && vehicle.assignedDriverId !== driver.driverId) throw new Error('Vehicle is assigned to a different driver.')
   }

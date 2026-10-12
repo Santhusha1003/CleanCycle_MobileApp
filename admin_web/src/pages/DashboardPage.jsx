@@ -130,7 +130,7 @@ function RecentActivityCard({ source, now }) {
               </div>
             )}
       <div className="dash-activity-empty-grid">
-        <div><h3>Special Collection Requests</h3><p>Backend schema unavailable</p></div>
+        <div><h3>Special Collection Requests</h3><p><Link to="/special-requests">Manage special requests</Link></p></div>
         <div><h3>Complaints & Feedback</h3><p>Backend schema unavailable</p></div>
       </div>
     </section>
@@ -186,7 +186,7 @@ export default function DashboardPage() {
     { label: 'Total Drivers', value: total('drivers'), footer: totalNote('drivers'), icon: 'driver', iconBg: '#deeeff' },
     { label: 'Staff Members', value: total('staff'), footer: totalNote('staff'), icon: 'users', iconBg: '#fff3cd' },
     { label: "Today's Collections", value: metric(schedules, todaySchedules.length), footer: footer(schedules, `${countStatus('completed')} completed`), icon: 'calendar' },
-    { label: 'Pending Waste Requests', value: '—', footer: 'No request data available', icon: 'request', iconBg: '#fff3cd' },
+    { label: 'Special Collection Requests', value: total('special_requests'), footer: totalNote('special_requests'), icon: 'request', iconBg: '#fff3cd' },
     { label: 'Open Complaints', value: '—', footer: 'No complaint data available', icon: 'complaint', iconBg: '#fee8e8' },
     { label: 'Missed-collection Reports', value: total('missedCollectionReports'), footer: totalNote('missedCollectionReports'), icon: 'report', iconBg: '#deeeff' },
   ]

@@ -25,6 +25,7 @@ export const subscribeVehicles = (data, error) => subscribeRecords('vehicles', d
 export const subscribeDrivers = (data, error) => subscribeRecords('drivers', data, error)
 export const subscribeStaff = (data, error) => subscribeRecords('staff', data, error)
 export const subscribeSchedules = (data, error) => subscribeRecords('schedules', data, error)
+export const subscribeSpecialRequests = (data, error) => subscribeRecords('special_requests', data, error)
 export async function saveRecord(kind, input, originalId) {
   const data = normalizeRecord(kind, input)
   const id = originalId || data[SCHEMAS[kind].id]

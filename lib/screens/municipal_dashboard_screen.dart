@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -29,11 +30,38 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   MunicipalAnalyticsSummary? _summary;
+  StreamSubscription<MunicipalAnalyticsSummary>? _subscription;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _subscribe();
+  }
+
+  void _subscribe() {
+    _subscription = _analyticsService.watchMunicipalAnalyticsSummary().listen(
+      (summary) {
+        if (!mounted) return;
+        setState(() {
+          _summary = summary;
+          _isLoading = false;
+          _errorMessage = null;
+        });
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = _safeMessage(error);
+          _isLoading = false;
+        });
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -41,20 +69,10 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
       _isLoading = true;
       _errorMessage = null;
     });
-    try {
-      final summary = await _analyticsService.getMunicipalAnalyticsSummary();
-      if (!mounted) return;
-      setState(() {
-        _summary = summary;
-        _isLoading = false;
-      });
-    } on Exception catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = _safeMessage(e);
-        _isLoading = false;
-      });
-    }
+    // Stop old event delivery immediately without waiting for native listener
+    // cleanup before opening the replacement subscription.
+    unawaited(_subscription?.cancel());
+    _subscribe();
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -364,8 +382,7 @@ class _CollectionStatusCard extends StatelessWidget {
     final total = summary.todayCollections;
     final completed = summary.completedToday;
     final inProgress = summary.inProgressToday;
-    // "Missed" = cancelled today
-    final missed = summary.cancelledToday;
+    final missed = summary.missedToday;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -398,12 +415,18 @@ class _CollectionStatusCard extends StatelessWidget {
                   color: AppColors.greenSurface,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  total == 0 ? 'No routes' : '$total routes',
-                  style: const TextStyle(
-                    color: AppColors.primaryDark,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                child: Tooltip(
+                  message:
+                      'Scheduled: ${summary.scheduledToday}\n'
+                      'Cancelled: ${summary.cancelledToday}\n'
+                      'Unknown status: ${summary.unknownToday}',
+                  child: Text(
+                    total == 0 ? 'No routes' : '$total routes',
+                    style: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -521,12 +544,10 @@ class _DonutPainter extends CustomPainter {
       ..strokeWidth = _strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    if (total == 0) {
-      // Empty ring
-      paint.color = AppColors.border;
-      canvas.drawCircle(Offset(cx, cy), radius, paint);
-      return;
-    }
+    // Scheduled, cancelled and unknown states occupy the neutral remainder.
+    paint.color = AppColors.border;
+    canvas.drawCircle(Offset(cx, cy), radius, paint);
+    if (total == 0) return;
 
     final segments = [
       _Segment(completed, AppColors.primary),

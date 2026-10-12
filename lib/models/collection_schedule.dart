@@ -16,6 +16,7 @@ class CollectionSchedule implements BaseModel {
     required this.wasteType,
     this.assignedVehicleId,
     this.assignedDriverId,
+    this.assignedDriverName,
     this.assignedDriverUid,
     required this.status,
     this.notes,
@@ -31,6 +32,7 @@ class CollectionSchedule implements BaseModel {
   final String wasteType;
   final String? assignedVehicleId;
   final String? assignedDriverId;
+  final String? assignedDriverName;
 
   /// Firebase Auth UID linked to the municipal Driver record. Never inferred
   /// from [assignedDriverId].
@@ -135,6 +137,7 @@ class CollectionSchedule implements BaseModel {
       'wasteType': wasteType,
       'assignedVehicleId': assignedVehicleId,
       'assignedDriverId': assignedDriverId,
+      'assignedDriverName': assignedDriverName,
       'assignedDriverUid': assignedDriverUid,
       'status': status,
       'notes': notes,
@@ -192,6 +195,10 @@ class CollectionSchedule implements BaseModel {
       assignedDriverId: ModelMapHelper.nullableValue<String>(
         map,
         'assignedDriverId',
+      ),
+      assignedDriverName: ModelMapHelper.nullableValue<String>(
+        map,
+        'assignedDriverName',
       ),
       assignedDriverUid: ModelMapHelper.nullableValue<String>(
         map,

@@ -10,12 +10,34 @@ import 'vehicle_service.dart';
 
 /// Service for managing municipal collection schedule records in Firestore.
 class ScheduleServiceException implements Exception {
-  const ScheduleServiceException(this.message);
+  const ScheduleServiceException(this.message, {this.cause});
 
   final String message;
+  final Object? cause;
 
   @override
   String toString() => 'ScheduleServiceException: $message';
+}
+
+/// Safe save context, while retaining the underlying exception for debugging.
+class ScheduleSavePermissionException extends FirebaseServiceException {
+  ScheduleSavePermissionException({required this.stage, required this.cause})
+    : super(
+        code: 'permission-denied',
+        message: cause is FirebaseException
+            ? cause.message ?? 'Firestore denied the schedule operation.'
+            : cause is FirebaseServiceException
+            ? cause.message
+            : 'Firestore denied the schedule operation.',
+      );
+
+  final String stage;
+  final Object cause;
+
+  String get userMessage =>
+      'Firestore denied access while $stage (permission-denied). '
+      'Check the signed-in account role and the published Firestore rules. '
+      'The schedule was not saved.';
 }
 
 class ScheduleService {
@@ -157,59 +179,57 @@ class ScheduleService {
     }
   }
 
-  Future<String?> _resolveAssignment(CollectionSchedule schedule) async {
-    final driverId = schedule.assignedDriverId?.trim();
+  Future<({String? uid, String? name})> _resolveAssignment(
+    CollectionSchedule schedule,
+  ) async {
+    if (schedule.status.trim().toLowerCase() == 'cancelled') {
+      return (uid: null, name: null);
+    }
     final vehicleId = schedule.assignedVehicleId?.trim();
-    if (schedule.status.trim().toLowerCase() == 'cancelled') return null;
-    if (driverId == null || driverId.isEmpty) {
-      if (schedule.assignedDriverUid?.trim().isNotEmpty == true) {
+    String? vehicleDriverId;
+    if (vehicleId != null && vehicleId.isNotEmpty) {
+      final vehicle = await _vehicleService.getVehicle(
+        registrationNumber: vehicleId,
+      );
+      vehicleDriverId = vehicle?.assignedDriverId;
+      if (vehicle == null ||
+          !['available', 'assigned'].contains(vehicle.status.toLowerCase())) {
         throw const ScheduleServiceException(
-          'A Driver Auth UID cannot be assigned without its municipal Driver record.',
+          'Choose an existing vehicle that is available for assignment.',
         );
       }
-      return null;
     }
-    if (vehicleId == null || vehicleId.isEmpty) {
-      throw const ScheduleServiceException(
-        'Choose a vehicle when assigning a Driver.',
-      );
-    }
+    final driverId = schedule.assignedDriverId?.trim();
+    if (driverId == null || driverId.isEmpty) return (uid: null, name: null);
     final driver = await _driverService.getDriver(driverId: driverId);
     if (driver == null) {
       throw const ScheduleServiceException(
         'The selected Driver record could not be found.',
       );
     }
-    if (!['available', 'assigned'].contains(driver.status.toLowerCase())) {
-      throw const ScheduleServiceException(
-        'The selected Driver is not available for assignment.',
-      );
-    }
-    final vehicle = await _vehicleService.getVehicle(
-      registrationNumber: vehicleId,
-    );
-    if (vehicle == null ||
-        !['available', 'assigned'].contains(vehicle.status.toLowerCase())) {
-      throw const ScheduleServiceException(
-        'Choose an existing vehicle that is available for assignment.',
-      );
-    }
-    if (driver.assignedVehicleId != null &&
-        driver.assignedVehicleId != vehicleId) {
-      throw const ScheduleServiceException(
-        'The selected Driver is already linked to a different vehicle.',
-      );
-    }
-    if (vehicle.assignedDriverId != null &&
-        vehicle.assignedDriverId != driverId) {
-      throw const ScheduleServiceException(
-        'The selected vehicle is already linked to a different Driver.',
-      );
+    // The municipal assignment is independent from tracking identity. A failed
+    // account match never discards the actual selected municipal driver ID.
+    if (vehicleId == null ||
+        vehicleId.isEmpty ||
+        driver.email.trim().isEmpty ||
+        (driver.assignedVehicleId != null &&
+            driver.assignedVehicleId != vehicleId) ||
+        (vehicleDriverId != null && vehicleDriverId != driverId)) {
+      return (uid: null, name: driver.fullName);
     }
     try {
-      return await _driverService.resolveVerifiedAuthUid(driverId: driverId);
-    } on DriverServiceException catch (error) {
-      throw ScheduleServiceException(error.message);
+      final uid = await _driverService.resolveVerifiedAuthUid(
+        driverId: driverId,
+      );
+      return (uid: uid, name: driver.fullName);
+    } on DriverServiceException catch (error, stack) {
+      if (error.code?.startsWith('account-') == true) {
+        return (uid: null, name: driver.fullName);
+      }
+      Error.throwWithStackTrace(
+        ScheduleServiceException(error.message, cause: error),
+        stack,
+      );
     }
   }
 
@@ -218,7 +238,8 @@ class ScheduleService {
     try {
       final normalizedScheduleId = _normalizeScheduleId(schedule.scheduleId);
       stage = 'verifying Driver and vehicle assignment';
-      final assignedDriverUid = await _resolveAssignment(schedule);
+      final assignment = await _resolveAssignment(schedule);
+      final assignedDriverUid = assignment.uid;
       final isCancelled = schedule.status.trim().toLowerCase() == 'cancelled';
       stage = 'validating schedule fields';
       _validateSchedule(
@@ -265,13 +286,16 @@ class ScheduleService {
             ? null
             : schedule.assignedDriverId,
         assignedDriverUid: assignedDriverUid,
+        assignedDriverName: assignment.name,
         status: schedule.status.trim().toLowerCase(),
         notes: schedule.notes?.trim().isEmpty == true ? null : schedule.notes,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
-      stage = 'committing schedule, projection, and tracking writes';
+      stage = assignedDriverUid == null
+          ? 'saving schedules and resident_schedules'
+          : 'saving schedules, resident_schedules, and driver_trips';
       if (assignedDriverUid != null) {
         await _trackingService.createAssignedTrip(
           'schedules',
@@ -286,31 +310,33 @@ class ScheduleService {
           mergeSchedule: false,
         );
       }
-    } on ScheduleServiceException {
-      rethrow;
-    } on FirebaseServiceException catch (exception) {
-      _logSaveFailure('create', stage, exception.code, exception.message);
-      rethrow;
-    } on StateError catch (exception) {
-      _logSaveFailure('create', stage, 'state-error', exception.message);
-      throw ScheduleServiceException(exception.message);
-    } on FirebaseException catch (exception) {
-      _logSaveFailure(
-        'create',
-        stage,
-        exception.code,
-        exception.message ?? 'No Firebase error message was provided.',
-      );
-      throw FirebaseServiceException.fromFirebaseException(exception);
-    } catch (exception) {
-      _logSaveFailure(
-        'create',
-        stage,
-        'unexpected-error',
-        exception.runtimeType.toString(),
-      );
-      if (exception is FormatException) {
-        throw ScheduleServiceException(exception.message);
+    } catch (exception, stack) {
+      final code = exception is FirebaseServiceException
+          ? exception.code
+          : exception is FirebaseException
+          ? exception.code
+          : exception.runtimeType.toString();
+      _logSaveFailure('create', stage, code, exception.toString(), stack);
+      if (code == 'permission-denied') {
+        Error.throwWithStackTrace(
+          ScheduleSavePermissionException(stage: stage, cause: exception),
+          stack,
+        );
+      }
+      if (exception is FirebaseException) {
+        Error.throwWithStackTrace(
+          FirebaseServiceException.fromFirebaseException(exception),
+          stack,
+        );
+      }
+      if (exception is StateError || exception is FormatException) {
+        final message = exception is StateError
+            ? exception.message.toString()
+            : (exception as FormatException).message;
+        Error.throwWithStackTrace(
+          ScheduleServiceException(message, cause: exception),
+          stack,
+        );
       }
       rethrow;
     }
@@ -328,13 +354,22 @@ class ScheduleService {
       return CollectionSchedule.fromMap(data, documentId: normalizedScheduleId);
     } on ScheduleServiceException {
       rethrow;
-    } on StateError catch (exception) {
-      throw ScheduleServiceException(exception.message);
-    } on FirebaseException catch (exception) {
-      throw FirebaseServiceException.fromFirebaseException(exception);
-    } catch (exception) {
+    } on StateError catch (exception, stack) {
+      Error.throwWithStackTrace(
+        ScheduleServiceException(exception.message, cause: exception),
+        stack,
+      );
+    } on FirebaseException catch (exception, stack) {
+      Error.throwWithStackTrace(
+        FirebaseServiceException.fromFirebaseException(exception),
+        stack,
+      );
+    } catch (exception, stack) {
       if (exception is FormatException) {
-        throw ScheduleServiceException(exception.message);
+        Error.throwWithStackTrace(
+          ScheduleServiceException(exception.message, cause: exception),
+          stack,
+        );
       }
       rethrow;
     }
@@ -389,7 +424,8 @@ class ScheduleService {
         documentId: normalizedScheduleId,
       );
       stage = 'verifying Driver and vehicle assignment';
-      final assignedDriverUid = await _resolveAssignment(schedule);
+      final assignment = await _resolveAssignment(schedule);
+      final assignedDriverUid = assignment.uid;
       final isCancelled = schedule.status.trim().toLowerCase() == 'cancelled';
 
       stage = 'validating updated schedule fields';
@@ -427,6 +463,7 @@ class ScheduleService {
             ? null
             : schedule.assignedDriverId,
         assignedDriverUid: assignedDriverUid,
+        assignedDriverName: assignment.name,
         status: schedule.status.trim().toLowerCase(),
         notes: schedule.notes?.trim().isEmpty == true ? null : schedule.notes,
         createdAt: existingSchedule.createdAt,
@@ -455,7 +492,9 @@ class ScheduleService {
           existingData['trackingTripId'] != null ||
           existingData['assignedDriverUid'] != null;
       final projectionSourceData = {...existingData, ...data};
-      stage = 'committing schedule, projection, and tracking writes';
+      stage = assignedDriverUid != null || hadTrip || isCancelled
+          ? 'saving schedules, resident_schedules, and driver_trips'
+          : 'saving schedules and resident_schedules';
       if (assignedDriverUid != null) {
         await _trackingService.createAssignedTrip(
           'schedules',
@@ -470,6 +509,7 @@ class ScheduleService {
           normalizedScheduleId,
           sourceData: data,
           projectionData: projectionSourceData,
+          preserveMunicipalAssignment: !isCancelled,
         );
       } else {
         await _trackingService.saveScheduleAndProjection(
@@ -479,31 +519,33 @@ class ScheduleService {
           mergeSchedule: true,
         );
       }
-    } on ScheduleServiceException {
-      rethrow;
-    } on FirebaseServiceException catch (exception) {
-      _logSaveFailure('update', stage, exception.code, exception.message);
-      rethrow;
-    } on StateError catch (exception) {
-      _logSaveFailure('update', stage, 'state-error', exception.message);
-      throw ScheduleServiceException(exception.message);
-    } on FirebaseException catch (exception) {
-      _logSaveFailure(
-        'update',
-        stage,
-        exception.code,
-        exception.message ?? 'No Firebase error message was provided.',
-      );
-      throw FirebaseServiceException.fromFirebaseException(exception);
-    } catch (exception) {
-      _logSaveFailure(
-        'update',
-        stage,
-        'unexpected-error',
-        exception.runtimeType.toString(),
-      );
-      if (exception is FormatException) {
-        throw ScheduleServiceException(exception.message);
+    } catch (exception, stack) {
+      final code = exception is FirebaseServiceException
+          ? exception.code
+          : exception is FirebaseException
+          ? exception.code
+          : exception.runtimeType.toString();
+      _logSaveFailure('update', stage, code, exception.toString(), stack);
+      if (code == 'permission-denied') {
+        Error.throwWithStackTrace(
+          ScheduleSavePermissionException(stage: stage, cause: exception),
+          stack,
+        );
+      }
+      if (exception is FirebaseException) {
+        Error.throwWithStackTrace(
+          FirebaseServiceException.fromFirebaseException(exception),
+          stack,
+        );
+      }
+      if (exception is StateError || exception is FormatException) {
+        final message = exception is StateError
+            ? exception.message.toString()
+            : (exception as FormatException).message;
+        Error.throwWithStackTrace(
+          ScheduleServiceException(message, cause: exception),
+          stack,
+        );
       }
       rethrow;
     }
@@ -514,11 +556,13 @@ class ScheduleService {
     String stage,
     String code,
     String message,
+    StackTrace stack,
   ) {
     if (kDebugMode) {
       debugPrint(
         '[SCHEDULE SAVE] operation=$operation stage=$stage code=$code message=$message',
       );
+      debugPrintStack(stackTrace: stack);
     }
   }
 

@@ -99,6 +99,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
         s.status,
         s.assignedVehicleId ?? '',
         s.assignedDriverId ?? '',
+        s.assignedDriverName ?? '',
       ];
       return fields.any((f) => f.toLowerCase().contains(q));
     }).toList();
@@ -128,9 +129,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
         _driverService.getDrivers(),
         _vehicleService.getVehicles(),
       ]);
-      drivers = (results[0] as List<Driver>)
-          .where((driver) => !['inactive', 'on_leave'].contains(driver.status))
-          .toList();
+      drivers = results[0] as List<Driver>;
       vehicles = (results[1] as List<Vehicle>)
           .where(
             (vehicle) => ![
@@ -171,6 +170,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
     String? selectedDriverId = schedule?.assignedDriverId;
     String? selectedVehicleId = schedule?.assignedVehicleId;
     bool isSaving = false;
+    String? saveError;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -457,7 +457,10 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
 
                           // ── Verified municipal assignments ───────────────
                           DropdownButtonFormField<String>(
+                            key: ValueKey('driver-$selectedDriverId'),
                             isExpanded: true,
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
                             initialValue:
                                 drivers.any(
                                   (driver) =>
@@ -471,7 +474,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                             items: [
                               const DropdownMenuItem<String>(
                                 value: null,
-                                child: Text('No Driver assigned'),
+                                child: Text('No Driver Assigned'),
                               ),
                               ...drivers.map(
                                 (driver) => DropdownMenuItem(
@@ -482,17 +485,22 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                 ),
                               ),
                             ],
-                            onChanged: (value) => setModalState(() {
-                              selectedDriverId = value;
-                            }),
-                            validator: (value) =>
-                                value != null && selectedVehicleId == null
-                                ? 'Choose a vehicle for this Driver.'
-                                : null,
+                            onChanged: isSaving
+                                ? null
+                                : (value) => setModalState(() {
+                                    selectedDriverId = value;
+                                    saveError = null;
+                                  }),
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
+                            key: ValueKey(
+                              'vehicle-$selectedDriverId-$selectedVehicleId',
+                            ),
                             isExpanded: true,
+                            autovalidateMode: selectedVehicleId == null
+                                ? AutovalidateMode.disabled
+                                : AutovalidateMode.always,
                             initialValue:
                                 vehicles.any(
                                   (vehicle) =>
@@ -518,29 +526,13 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                 ),
                               ),
                             ],
-                            onChanged: (value) => setModalState(() {
-                              selectedVehicleId = value;
-                            }),
-                            validator: (value) =>
-                                selectedDriverId != null && value == null
-                                ? 'Choose a vehicle for this Driver.'
-                                : null,
+                            onChanged: isSaving
+                                ? null
+                                : (value) => setModalState(() {
+                                    selectedVehicleId = value;
+                                    saveError = null;
+                                  }),
                           ),
-                          if (selectedDriverId != null &&
-                              drivers
-                                      .where(
-                                        (driver) =>
-                                            driver.driverId == selectedDriverId,
-                                      )
-                                      .firstOrNull
-                                      ?.authUid ==
-                                  null) ...[
-                            const SizedBox(height: 6),
-                            const Text(
-                              'The Driver account will be verified by its registered email when you save.',
-                              style: TextStyle(color: AppColors.textSecondary),
-                            ),
-                          ],
                           const SizedBox(height: 12),
 
                           // ── Notes (optional) ──────────────────────────────
@@ -552,6 +544,20 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                             minLines: 2,
                           ),
                           const SizedBox(height: 20),
+
+                          if (saveError != null) ...[
+                            Semantics(
+                              liveRegion: true,
+                              child: Text(
+                                saveError!,
+                                style: const TextStyle(
+                                  color: AppColors.error,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
 
                           // ── Submit ────────────────────────────────────────
                           AppPrimaryButton(
@@ -571,16 +577,11 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                   zoneFieldKey.currentState?.value ?? zoneValue;
                               if (scheduleId.trim().isEmpty ||
                                   zone.trim().isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      scheduleId.trim().isEmpty
-                                          ? 'Schedule ID is required.'
-                                          : 'Zone is required.',
-                                    ),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
+                                setModalState(() {
+                                  saveError = scheduleId.trim().isEmpty
+                                      ? 'Schedule ID is required.'
+                                      : 'Zone is required.';
+                                });
                                 return;
                               }
 
@@ -592,14 +593,10 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                   selectedEndTime.hour * 60 +
                                   selectedEndTime.minute;
                               if (endMinutes <= startMinutes) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'End time must be after start time.',
-                                    ),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
+                                setModalState(() {
+                                  saveError =
+                                      'End time must be after start time.';
+                                });
                                 return;
                               }
 
@@ -639,7 +636,10 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                   '[SCHEDULE SAVE] operation=${isEditing ? 'update' : 'create'} stage=calling_service fields=[scheduleId,zone,collectionDate,startTime,endTime,wasteType,status,assignedDriverId,assignedVehicleId,notes]',
                                 );
                               }
-                              setModalState(() => isSaving = true);
+                              setModalState(() {
+                                isSaving = true;
+                                saveError = null;
+                              });
                               try {
                                 if (isEditing) {
                                   await _scheduleService.updateSchedule(
@@ -660,29 +660,29 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                     '[SCHEDULE SAVE] operation=${isEditing ? 'update' : 'create'} stage=service_succeeded',
                                   );
                                 }
-                              } on Object catch (exception) {
+                              } on Object catch (exception, stack) {
                                 if (kDebugMode) {
                                   final firebaseDetails =
                                       exception is FirebaseServiceException
                                       ? ' firebaseCode=${exception.code} firebaseMessage=${exception.message}'
                                       : ' errorType=${exception.runtimeType}';
                                   debugPrint(
-                                    '[SCHEDULE SAVE] operation=${isEditing ? 'update' : 'create'} stage=service_failed$firebaseDetails',
+                                    '[SCHEDULE SAVE] operation=${isEditing ? 'update' : 'create'} stage=service_failed$firebaseDetails message=$exception',
                                   );
+                                  debugPrintStack(stackTrace: stack);
                                 }
-                                scaffoldMessenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      _scheduleSaveErrorMessage(exception),
-                                    ),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
-                                setModalState(() => isSaving = false);
+                                if (!context.mounted) return;
+                                setModalState(() {
+                                  saveError = _scheduleSaveErrorMessage(
+                                    exception,
+                                  );
+                                  isSaving = false;
+                                });
                                 return;
                               }
 
-                              navigator.pop();
+                              if (!mounted) return;
+                              if (context.mounted) navigator.pop();
                               scaffoldMessenger.showSnackBar(
                                 SnackBar(
                                   content: Text(successMessage),
@@ -755,7 +755,12 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                 _dialogRow('Vehicle', schedule.assignedVehicleId!),
               if (schedule.assignedDriverId != null &&
                   schedule.assignedDriverId!.isNotEmpty)
-                _dialogRow('Driver', schedule.assignedDriverId!),
+                _dialogRow(
+                  'Driver',
+                  schedule.assignedDriverName == null
+                      ? schedule.assignedDriverId!
+                      : '${schedule.assignedDriverName} · ${schedule.assignedDriverId}',
+                ),
               if (schedule.notes != null && schedule.notes!.isNotEmpty)
                 _dialogRow('Notes', schedule.notes!),
               const SizedBox(height: 8),
@@ -1189,8 +1194,18 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
   }
 
   static String _scheduleSaveErrorMessage(Object exception) {
+    if (exception is ScheduleSavePermissionException) {
+      return exception.userMessage;
+    }
     if (exception is FirebaseServiceException) {
-      return 'Firestore ${exception.code}: ${exception.message}';
+      return switch (exception.code) {
+        'permission-denied' =>
+          'Firestore denied schedule access (permission-denied). Check the signed-in account role and the published Firestore rules. The schedule was not saved.',
+        'unauthenticated' => 'Sign in again before saving this schedule.',
+        'unavailable' =>
+          'The schedule could not be saved. Check your connection and retry.',
+        _ => 'Unable to save the schedule (${exception.code}). Please retry.',
+      };
     }
     return _safeErrorMessage(exception);
   }
@@ -1323,7 +1338,12 @@ class _ScheduleCard extends StatelessWidget {
           if (schedule.assignedDriverId != null &&
               schedule.assignedDriverId!.isNotEmpty) ...[
             const SizedBox(height: 6),
-            _detailRow(Icons.person_outlined, schedule.assignedDriverId!),
+            _detailRow(
+              Icons.person_outlined,
+              schedule.assignedDriverName == null
+                  ? schedule.assignedDriverId!
+                  : '${schedule.assignedDriverName} · ${schedule.assignedDriverId}',
+            ),
           ],
           if (schedule.notes != null && schedule.notes!.isNotEmpty) ...[
             const SizedBox(height: 6),

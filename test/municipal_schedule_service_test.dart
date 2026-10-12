@@ -297,6 +297,46 @@ void main() {
   );
 
   test(
+    'creation preserves the original secondary-write failure stack',
+    () async {
+      final store = _Store({});
+      final tracking = _Tracking(store)
+        ..writeFailure = FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'permission-denied',
+          message: 'Resident projection write denied.',
+        );
+      final service = ScheduleService(
+        firestoreService: store,
+        trackingService: tracking,
+      );
+      Object? caught;
+      StackTrace? originalStack;
+      try {
+        await service.createSchedule(schedule: schedule('projection-denied'));
+      } catch (error, stack) {
+        caught = error;
+        originalStack = stack;
+      }
+      expect(
+        caught,
+        isA<FirebaseServiceException>()
+            .having((error) => error.code, 'code', 'permission-denied')
+            .having(
+              (error) => error.message,
+              'message',
+              'Resident projection write denied.',
+            ),
+      );
+      expect(
+        originalStack.toString(),
+        contains('_Tracking.saveScheduleAndProjection'),
+      );
+      expect(store.records, isEmpty);
+    },
+  );
+
+  test(
     'Create preserves Firestore write code and message on failure',
     () async {
       final store = _Store({});

@@ -423,11 +423,10 @@ class TrackingService {
       );
     }
     if (DriverTrackingModel.text(
-          scheduleData['assignedDriverUid'],
-        ).isNotEmpty ||
-        DriverTrackingModel.text(scheduleData['assignedDriverId']).isNotEmpty) {
+      scheduleData['assignedDriverUid'],
+    ).isNotEmpty) {
       throw StateError(
-        'Assigned schedules must be saved with their tracking trip.',
+        'Schedules with an authenticated tracking assignment must be saved with their tracking trip.',
       );
     }
     final batch = _instance.batch();
@@ -718,6 +717,7 @@ class TrackingService {
     String scheduleId, {
     Map<String, dynamic>? sourceData,
     Map<String, dynamic>? projectionData,
+    bool preserveMunicipalAssignment = false,
   }) async {
     if (scheduleId.isEmpty || scheduleId.contains('/')) {
       throw ArgumentError('Invalid schedule ID.');
@@ -736,14 +736,16 @@ class TrackingService {
     batch.delete(trip);
     if (sourceData == null) {
       batch.update(schedule, {
-        'assignedDriverId': FieldValue.delete(),
+        if (!preserveMunicipalAssignment)
+          'assignedDriverId': FieldValue.delete(),
         'assignedDriverUid': FieldValue.delete(),
         'trackingTripId': FieldValue.delete(),
       });
     } else {
       batch.set(schedule, {
         ...sourceData,
-        'assignedDriverId': FieldValue.delete(),
+        if (!preserveMunicipalAssignment)
+          'assignedDriverId': FieldValue.delete(),
         'assignedDriverUid': FieldValue.delete(),
         'trackingTripId': FieldValue.delete(),
       }, SetOptions(merge: true));

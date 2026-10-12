@@ -44,6 +44,73 @@ void main() {
     codec.dispose();
   });
 
+  for (final size in [
+    const Size(320, 568),
+    const Size(430, 1000),
+    const Size(1024, 1366),
+  ]) {
+    testWidgets('Logo feathering preserves artwork at $size', (tester) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(const MaterialApp(home: SplashScreen()));
+
+      final image = tester.widget<Image>(find.byType(Image));
+      expect((image.image as AssetImage).assetName, SplashScreen.logoAsset);
+      expect(image.fit, BoxFit.contain);
+      expect(image.semanticLabel, 'CleanCycle logo');
+      final logoContainer = tester.widget<Container>(
+        find
+            .ancestor(of: find.byType(Image), matching: find.byType(Container))
+            .first,
+      );
+      final decoration = logoContainer.decoration! as BoxDecoration;
+      expect(decoration.color, isNull);
+      expect(decoration.border, isNull);
+      expect(decoration.boxShadow, isNull);
+      final shading = decoration.gradient! as RadialGradient;
+      expect(shading.colors.last.a, 0);
+      for (final color in shading.colors) {
+        expect(color.g, greaterThan(color.r));
+        expect(color.a, lessThan(0.1));
+      }
+      final maskFinder = find.ancestor(
+        of: find.byType(Image),
+        matching: find.byType(ShaderMask),
+      );
+      final mask = tester.widget<ShaderMask>(maskFinder);
+      expect(mask.blendMode, BlendMode.dstIn);
+      final bounds = tester.getSize(maskFinder);
+      expect(bounds.width, bounds.height);
+      expect(bounds.width, greaterThan(0));
+
+      // Rasterize the actual mask shader: artwork stays fully opaque,
+      // the outer band fades, and square corners become transparent.
+      await tester.runAsync(() async {
+        const rect = Rect.fromLTWH(0, 0, 100, 100);
+        final recorder = ui.PictureRecorder();
+        Canvas(
+          recorder,
+        ).drawRect(rect, Paint()..shader = mask.shaderCallback(rect));
+        final picture = recorder.endRecording();
+        final raster = await picture.toImage(100, 100);
+        final pixels = (await raster.toByteData())!;
+        int alpha(int x, int y) => pixels.getUint8((y * 100 + x) * 4 + 3);
+        expect(alpha(50, 50), 255);
+        // The outermost lettering in the original asset is within this core.
+        expect(alpha(20, 75), 255);
+        expect(alpha(80, 75), 255);
+        expect(alpha(4, 50), inExclusiveRange(0, 255));
+        expect(alpha(0, 0), 0);
+        raster.dispose();
+        picture.dispose();
+      });
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   testWidgets('App displays splash for seven seconds then signed-out Login', (
     tester,
   ) async {

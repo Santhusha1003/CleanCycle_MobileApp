@@ -44,17 +44,21 @@ service cloud.firestore {
       let driverId = data.get('assignedDriverId', null);
       let driverUid = data.get('assignedDriverUid', null);
       let vehicleId = data.get('assignedVehicleId', null);
-      return (driverId == null && driverUid == null)
-          || (driverId is string && driverUid is string && vehicleId is string
-              && exists(/databases/$(database)/documents/drivers/$(driverId))
-              && get(/databases/$(database)/documents/drivers/$(driverId)).data.authUid == driverUid
-              && exists(/databases/$(database)/documents/users/$(driverUid))
-              && get(/databases/$(database)/documents/users/$(driverUid)).data.role == 'driver'
-              && exists(/databases/$(database)/documents/vehicles/$(vehicleId))
-              && (get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.get('assignedDriverId', null) == null
-                  || get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.assignedDriverId == driverId)
-              && (get(/databases/$(database)/documents/drivers/$(driverId)).data.get('assignedVehicleId', null) == null
-                  || get(/databases/$(database)/documents/drivers/$(driverId)).data.assignedVehicleId == vehicleId));
+      // Planning records grant no account access. Only Officers can write them;
+      // every selected municipal driver/vehicle must be a real existing record.
+      return (vehicleId == null || (vehicleId is string
+                  && exists(/databases/$(database)/documents/vehicles/$(vehicleId))))
+          && (driverId == null || (driverId is string
+                  && exists(/databases/$(database)/documents/drivers/$(driverId))))
+          && (driverUid == null
+              || (driverId is string && driverUid is string && vehicleId is string
+                  && get(/databases/$(database)/documents/drivers/$(driverId)).data.authUid == driverUid
+                  && exists(/databases/$(database)/documents/users/$(driverUid))
+                  && get(/databases/$(database)/documents/users/$(driverUid)).data.role == 'driver'
+                  && (get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.get('assignedDriverId', null) == null
+                      || get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.assignedDriverId == driverId)
+                  && (get(/databases/$(database)/documents/drivers/$(driverId)).data.get('assignedVehicleId', null) == null
+                      || get(/databases/$(database)/documents/drivers/$(driverId)).data.assignedVehicleId == vehicleId)));
     }
 
     function validDriverAuthLink(data) {
@@ -62,8 +66,8 @@ service cloud.firestore {
       return driverUid == null
           || (driverUid is string
               && exists(/databases/$(database)/documents/users/$(driverUid))
-              && get(/databases/$(database)/documents/users/$(driverUid)).data.uid == driverUid
-              && get(/databases/$(database)/documents/users/$(driverUid)).data.email.lower() == data.email.lower()
+              && get(/databases/$(database)/documents/users/$(driverUid)).data.get('uid', driverUid) == driverUid
+              && get(/databases/$(database)/documents/users/$(driverUid)).data.email.trim().lower() == data.email.trim().lower()
               && get(/databases/$(database)/documents/users/$(driverUid)).data.role == 'driver');
     }
 
@@ -380,6 +384,25 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/users/$(trip.assignedDriverUid)).data.role == 'driver'
           && exists(/databases/$(database)/documents/vehicles/$(trip.assignedVehicleId));
     }
+    // Officer assignment batches write the source and trip together. Validate
+    // that source after the batch; reads and Driver updates use current data.
+    function validTripAfterWrite(trip) {
+      // Preserve existing request-trip permissions; only schedule batches need
+      // to validate their newly written source before it exists in storage.
+      return trip.get('requestCollection', '') == 'schedules'
+          ? (trip.keys().hasAll(['assignedDriverUid', 'assignedVehicleId', 'assignedDriverId', 'residentId', 'requestId'])
+              && trip.assignedDriverUid is string
+              && trip.assignedDriverUid.size() > 0
+              && existsAfter(tripSource(trip))
+              && getAfter(tripSource(trip)).data.assignedDriverId == trip.assignedDriverId
+              && getAfter(tripSource(trip)).data.assignedDriverUid == trip.assignedDriverUid
+              && getAfter(tripSource(trip)).data.assignedVehicleId == trip.assignedVehicleId
+              && trip.residentId == ''
+              && get(/databases/$(database)/documents/drivers/$(trip.assignedDriverId)).data.authUid == trip.assignedDriverUid
+              && get(/databases/$(database)/documents/users/$(trip.assignedDriverUid)).data.role == 'driver'
+              && exists(/databases/$(database)/documents/vehicles/$(trip.assignedVehicleId)))
+          : validTrip(trip);
+    }
     function validProjection(trip) {
       let driver = get(/databases/$(database)/documents/users/$(trip.assignedDriverUid)).data;
       let vehicle = get(/databases/$(database)/documents/vehicles/$(trip.assignedVehicleId)).data;
@@ -403,9 +426,9 @@ service cloud.firestore {
       allow get: if isOfficer()
                   || (isDriver() && resource.data.assignedDriverUid == request.auth.uid)
                   || ((isResident() || isDriver()) && resource.data.residentId == request.auth.uid && validTrip(resource.data));
-      allow create: if isOfficer() && validTrip(request.resource.data) && validProjection(request.resource.data)
+      allow create: if isOfficer() && validTripAfterWrite(request.resource.data) && validProjection(request.resource.data)
                     && tripId == request.resource.data.requestCollection + '_' + request.resource.data.requestId;
-      allow update: if (isOfficer() && validTrip(request.resource.data) && validProjection(request.resource.data)
+      allow update: if (isOfficer() && validTripAfterWrite(request.resource.data) && validProjection(request.resource.data)
                         && tripId == request.resource.data.requestCollection + '_' + request.resource.data.requestId)
                     || (isDriver() && resource.data.assignedDriverUid == request.auth.uid
                         && validTrip(resource.data) && validCoordinates(request.resource.data)

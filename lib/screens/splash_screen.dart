@@ -96,35 +96,48 @@ class _SplashScreenState extends State<SplashScreen>
                               Container(
                                 width: logoSize,
                                 height: logoSize,
-                                padding: const EdgeInsets.all(26),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    width: 2,
+                                // Include the former border inset so removing
+                                // the frame does not move or resize the artwork.
+                                padding: const EdgeInsets.all(28),
+                                decoration: const BoxDecoration(
+                                  gradient: RadialGradient(
+                                    // A diffuse green shade, rather than a box
+                                    // shadow that could reveal a square frame.
+                                    center: Alignment(0, 0.1),
+                                    colors: [
+                                      Color(0x141E5E3F),
+                                      Color(0x0C2E8B57),
+                                      Color(0x002E8B57),
+                                    ],
+                                    stops: [0, 0.55, 1],
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primaryDark.withValues(
-                                        alpha: 0.12,
-                                      ),
-                                      blurRadius: 32,
-                                      offset: const Offset(0, 12),
-                                    ),
-                                  ],
                                 ),
-                                child: Image.asset(
-                                  SplashScreen.logoAsset,
-                                  fit: BoxFit.contain,
-                                  semanticLabel: 'CleanCycle logo',
-                                  // Retain a readable brand mark if an asset cannot
-                                  // be decoded; never display a phone mockup.
-                                  errorBuilder: (context, error, stack) => Icon(
-                                    Icons.recycling_rounded,
-                                    color: AppColors.primary,
-                                    size: logoSize * 0.5,
-                                    semanticLabel: 'CleanCycle',
+                                child: ShaderMask(
+                                  blendMode: BlendMode.dstIn,
+                                  shaderCallback: (bounds) => const RadialGradient(
+                                    // Keep the central artwork fully opaque;
+                                    // feather only its surrounding background.
+                                    colors: [
+                                      Colors.white,
+                                      Colors.white,
+                                      Color(0x66FFFFFF),
+                                      Colors.transparent,
+                                    ],
+                                    stops: [0, 0.8, 0.92, 1],
+                                  ).createShader(bounds),
+                                  child: Image.asset(
+                                    SplashScreen.logoAsset,
+                                    fit: BoxFit.contain,
+                                    semanticLabel: 'CleanCycle logo',
+                                    // Retain a readable brand mark if an asset cannot
+                                    // be decoded; never display a phone mockup.
+                                    errorBuilder: (context, error, stack) =>
+                                        Icon(
+                                          Icons.recycling_rounded,
+                                          color: AppColors.primary,
+                                          size: logoSize * 0.5,
+                                          semanticLabel: 'CleanCycle',
+                                        ),
                                   ),
                                 ),
                               ),

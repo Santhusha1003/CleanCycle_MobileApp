@@ -121,6 +121,7 @@ class TrackingFirestoreFixture implements FirebaseFirestore {
   final denied = <String>{};
   final errorCodes = <String, String>{};
   bool failNextBatchCommit = false;
+  String batchFailureCode = 'unavailable';
   @override
   WriteBatch batch() => _Batch(this);
   @override
@@ -142,6 +143,15 @@ class _Collection implements CollectionReference<Map<String, dynamic>> {
   @override
   Future<QuerySnapshot<Map<String, dynamic>>> get([GetOptions? options]) =>
       _Query(db, path, const {}).get(options);
+  @override
+  Stream<QuerySnapshot<Map<String, dynamic>>> snapshots({
+    bool includeMetadataChanges = false,
+    ListenSource source = ListenSource.defaultSource,
+  }) => _Query(
+    db,
+    path,
+    const {},
+  ).snapshots(includeMetadataChanges: includeMetadataChanges, source: source);
   @override
   Query<Map<String, dynamic>> where(
     Object field, {
@@ -397,7 +407,7 @@ class _Batch implements WriteBatch {
       db.failNextBatchCommit = false;
       throw FirebaseException(
         plugin: 'cloud_firestore',
-        code: 'unavailable',
+        code: db.batchFailureCode,
         message: 'Injected atomic batch failure.',
       );
     }

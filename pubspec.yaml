@@ -39,6 +39,24 @@ dependencies:
   firebase_messaging: ^16.7.0
   cloud_firestore: ^6.0.0
 
+  # State management (chosen over Riverpod: less setup, easier to explain in viva).
+  provider: ^6.1.5
+
+  # Authentication, profile, notifications and supporting services.
+  google_sign_in: ^6.3.0
+  flutter_local_notifications: ^19.5.0
+  image_picker: ^1.1.2
+  path_provider: ^2.1.5
+  crypto: ^3.0.6
+  http: ^1.5.0
+  # Collection requests, photo storage and live tracking (Member 03).
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+  firebase_storage: ^13.6.0
+  intl: ^0.20.3
+  timezone: ^0.10.1
+  url_launcher: ^6.3.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -60,6 +78,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/images/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

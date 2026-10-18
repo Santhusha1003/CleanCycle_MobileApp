@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../navigation/municipal_shell.dart';
 
 import '../models/vehicle.dart';
+import 'vehicle_details_screen.dart';
 import '../services/municipal/vehicle_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/common/app_card.dart';
@@ -16,7 +17,10 @@ import '../widgets/common/app_status_card.dart';
 import '../widgets/common/app_text_field.dart';
 
 class VehicleManagementScreen extends StatefulWidget {
-  const VehicleManagementScreen({super.key});
+  const VehicleManagementScreen({super.key, this.firestore, this.service});
+
+  final FirebaseFirestore? firestore;
+  final VehicleService? service;
 
   @override
   State<VehicleManagementScreen> createState() =>
@@ -24,7 +28,8 @@ class VehicleManagementScreen extends StatefulWidget {
 }
 
 class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
-  final VehicleService _vehicleService = VehicleService();
+  late final VehicleService _vehicleService =
+      widget.service ?? VehicleService();
   final TextEditingController _searchController = TextEditingController();
 
   // Real-time Firestore subscription — replaces one-time _loadVehicles() read.
@@ -57,7 +62,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
       _errorMessage = null;
     });
 
-    _vehicleSubscription = FirebaseFirestore.instance
+    _vehicleSubscription = (widget.firestore ?? FirebaseFirestore.instance)
         .collection('vehicles')
         .snapshots()
         .listen(
@@ -122,7 +127,19 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
     });
   }
 
-  Future<void> _showVehicleForm({Vehicle? vehicle}) async {
+  void _openVehicleDetails(Vehicle vehicle) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => VehicleDetailsScreen(
+          vehicle: vehicle,
+          onEdit: (record) => _showVehicleForm(vehicle: record),
+          onDelete: _confirmDelete,
+        ),
+      ),
+    );
+  }
+
+  Future<Vehicle?> _showVehicleForm({Vehicle? vehicle}) async {
     final isEditing = vehicle != null;
     final formKey = GlobalKey<FormState>();
     final registrationController = TextEditingController(
@@ -150,7 +167,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
     DateTime? nextServiceDate = vehicle?.nextServiceDate;
     String statusValue = vehicle?.status ?? 'available';
 
-    final result = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<Vehicle>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -390,6 +407,10 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                                   updatedAt: DateTime.now(),
                                 );
 
+                                final messenger = ScaffoldMessenger.of(context);
+                                final sheetNavigator = Navigator.of(
+                                  sheetContext,
+                                );
                                 bool success = false;
                                 String? message;
 
@@ -415,18 +436,17 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                                 }
 
                                 if (success) {
-                                  if (!mounted) return;
-                                  Navigator.pop(sheetContext, success);
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  if (!mounted || !sheetContext.mounted) return;
+                                  sheetNavigator.pop(resultVehicle);
+                                  messenger.showSnackBar(
                                     SnackBar(
                                       content: Text(message),
                                       backgroundColor: AppColors.success,
                                     ),
                                   );
-                                  await _loadVehicles();
                                 } else {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  if (!mounted || !sheetContext.mounted) return;
+                                  messenger.showSnackBar(
                                     SnackBar(
                                       content: Text(message),
                                       backgroundColor: AppColors.error,
@@ -448,12 +468,13 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
       },
     );
 
-    if (result == true) {
+    if (result != null && mounted) {
       await _loadVehicles();
     }
+    return result;
   }
 
-  Future<void> _confirmDelete(Vehicle vehicle) async {
+  Future<bool> _confirmDelete(Vehicle vehicle) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -479,14 +500,14 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
     );
 
     if (confirmed != true) {
-      return;
+      return false;
     }
 
     try {
       await _vehicleService.deleteVehicle(
         registrationNumber: vehicle.registrationNumber,
       );
-      if (!mounted) return;
+      if (!mounted) return true;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Vehicle deleted successfully.'),
@@ -494,8 +515,9 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
         ),
       );
       await _loadVehicles();
+      return true;
     } on VehicleServiceException catch (exception) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(exception.message),
@@ -503,7 +525,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
         ),
       );
     } on Exception catch (exception) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(exception.toString()),
@@ -511,6 +533,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
         ),
       );
     }
+    return false;
   }
 
   @override
@@ -655,10 +678,11 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                 Expanded(
                   child: ListView.separated(
                     itemCount: _filteredVehicles.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final vehicle = _filteredVehicles[index];
                       return AppCard(
+                        onTap: () => _openVehicleDetails(vehicle),
                         color: AppColors.greenSurface,
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -721,6 +745,13 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
                                 spacing: 12,
                                 runSpacing: 8,
                                 children: [
+                                  AppSecondaryButton(
+                                    label: 'View details',
+                                    compact: true,
+                                    icon: Icons.info_outline,
+                                    onPressed: () =>
+                                        _openVehicleDetails(vehicle),
+                                  ),
                                   AppSecondaryButton(
                                     label: 'Edit',
                                     compact: true,
@@ -796,7 +827,7 @@ class _VehicleManagementScreenState extends State<VehicleManagementScreen> {
 }
 
 class InfoChip extends StatelessWidget {
-  const InfoChip({required this.label});
+  const InfoChip({super.key, required this.label});
 
   final String label;
 

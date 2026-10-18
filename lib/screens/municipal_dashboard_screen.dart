@@ -1,17 +1,22 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../navigation/app_routes.dart';
+import '../navigation/municipal_shell.dart';
 import '../services/municipal/municipal_analytics_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/common/authenticated_user_greeting.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MunicipalDashboardScreen
 // ─────────────────────────────────────────────────────────────────────────────
 
 class MunicipalDashboardScreen extends StatefulWidget {
-  const MunicipalDashboardScreen({super.key});
+  const MunicipalDashboardScreen({super.key, this.analyticsService});
+
+  final MunicipalAnalyticsService? analyticsService;
 
   @override
   State<MunicipalDashboardScreen> createState() =>
@@ -19,20 +24,54 @@ class MunicipalDashboardScreen extends StatefulWidget {
 }
 
 class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
-  final MunicipalAnalyticsService _analyticsService =
-      MunicipalAnalyticsService();
-
-  // Bottom-nav index — always 0 (Dashboard) on this screen
-  int _navIndex = 0;
+  late final MunicipalAnalyticsService _analyticsService =
+      widget.analyticsService ?? MunicipalAnalyticsService();
 
   bool _isLoading = true;
   String? _errorMessage;
   MunicipalAnalyticsSummary? _summary;
+  StreamSubscription<MunicipalAnalyticsSummary>? _subscription;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _subscribe();
+  }
+
+  void _subscribe() {
+    try {
+      _subscription = _analyticsService.watchMunicipalAnalyticsSummary().listen(
+        (summary) {
+          if (!mounted) return;
+          setState(() {
+            _summary = summary;
+            _isLoading = false;
+            _errorMessage = null;
+          });
+        },
+        onError: (Object error) {
+          if (!mounted) return;
+          setState(() {
+            _errorMessage = _safeMessage(error);
+            _isLoading = false;
+          });
+        },
+      );
+    } catch (error) {
+      // Backend initialization can fail before a stream exists. Use the same
+      // visible error state as listener failures; never show invented counts.
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = _safeMessage(error);
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -40,40 +79,10 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
       _isLoading = true;
       _errorMessage = null;
     });
-    try {
-      final summary = await _analyticsService.getMunicipalAnalyticsSummary();
-      setState(() {
-        _summary = summary;
-        _isLoading = false;
-      });
-    } on Exception catch (e) {
-      setState(() {
-        _errorMessage = _safeMessage(e);
-        _isLoading = false;
-      });
-    }
-  }
-
-  // ── Bottom-nav tap ────────────────────────────────────────────────────────
-  void _onNavTap(int index) {
-    if (index == _navIndex) return;
-    setState(() => _navIndex = index);
-
-    const routes = [
-      null, // 0 = Dashboard (already here)
-      AppRoutes.vehicleManagement, // 1
-      AppRoutes.driverManagement, // 2
-      AppRoutes.staffManagement, // 3
-      AppRoutes.reportsAnalytics, // 4
-    ];
-
-    final route = routes[index];
-    if (route != null) {
-      Navigator.pushNamed(context, route).then((_) {
-        // Reset active index when returning
-        if (mounted) setState(() => _navIndex = 0);
-      });
-    }
+    // Stop old event delivery immediately without waiting for native listener
+    // cleanup before opening the replacement subscription.
+    unawaited(_subscription?.cancel());
+    _subscribe();
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -81,8 +90,6 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      // ── Bottom navigation bar ────────────────────────────────────────────
-      bottomNavigationBar: _BottomNav(activeIndex: _navIndex, onTap: _onNavTap),
       body: SafeArea(
         child: Column(
           children: [
@@ -105,13 +112,16 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Notification bell (left)
-          _IconBtn(icon: Icons.notifications_outlined, onTap: () {}),
+          _IconBtn(
+            icon: Icons.notifications_outlined,
+            onTap: () => Navigator.pushNamed(context, AppRoutes.notifications),
+          ),
           // CleanCycle branding (center)
-          const Expanded(
+          Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                const Text(
                   'CleanCycle',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -121,7 +131,7 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
                     letterSpacing: 0.4,
                   ),
                 ),
-                Text(
+                const Text(
                   'Municipal Operations',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -131,11 +141,16 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
                     letterSpacing: 0.3,
                   ),
                 ),
+                const SizedBox(height: 2),
+                const AuthenticatedUserGreeting(textAlign: TextAlign.center),
               ],
             ),
           ),
           // Profile (right)
-          _IconBtn(icon: Icons.account_circle_outlined, onTap: () {}),
+          _IconBtn(
+            icon: Icons.account_circle_outlined,
+            onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+          ),
         ],
       ),
     );
@@ -336,7 +351,7 @@ class _MunicipalDashboardScreenState extends State<MunicipalDashboardScreen> {
       children: actions.map((a) {
         return _QuickActionCard(
           item: a,
-          onTap: () => Navigator.pushNamed(context, a.route),
+          onTap: () => MunicipalShell.navigate(context, a.route),
         );
       }).toList(),
     );
@@ -377,8 +392,7 @@ class _CollectionStatusCard extends StatelessWidget {
     final total = summary.todayCollections;
     final completed = summary.completedToday;
     final inProgress = summary.inProgressToday;
-    // "Missed" = cancelled today
-    final missed = summary.cancelledToday;
+    final missed = summary.missedToday;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -411,12 +425,18 @@ class _CollectionStatusCard extends StatelessWidget {
                   color: AppColors.greenSurface,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  total == 0 ? 'No routes' : '$total routes',
-                  style: const TextStyle(
-                    color: AppColors.primaryDark,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                child: Tooltip(
+                  message:
+                      'Scheduled: ${summary.scheduledToday}\n'
+                      'Cancelled: ${summary.cancelledToday}\n'
+                      'Unknown status: ${summary.unknownToday}',
+                  child: Text(
+                    total == 0 ? 'No routes' : '$total routes',
+                    style: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
@@ -534,12 +554,10 @@ class _DonutPainter extends CustomPainter {
       ..strokeWidth = _strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    if (total == 0) {
-      // Empty ring
-      paint.color = AppColors.border;
-      canvas.drawCircle(Offset(cx, cy), radius, paint);
-      return;
-    }
+    // Scheduled, cancelled and unknown states occupy the neutral remainder.
+    paint.color = AppColors.border;
+    canvas.drawCircle(Offset(cx, cy), radius, paint);
+    if (total == 0) return;
 
     final segments = [
       _Segment(completed, AppColors.primary),
@@ -788,96 +806,4 @@ class _IconBtn extends StatelessWidget {
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Bottom navigation bar
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.activeIndex, required this.onTap});
-
-  final int activeIndex;
-  final ValueChanged<int> onTap;
-
-  static const _items = [
-    _NavItem(label: 'Dashboard', icon: Icons.dashboard_outlined),
-    _NavItem(label: 'Vehicles', icon: Icons.local_shipping_outlined),
-    _NavItem(label: 'Drivers', icon: Icons.drive_eta_outlined),
-    _NavItem(label: 'Staff', icon: Icons.people_alt_outlined),
-    _NavItem(label: 'Reports', icon: Icons.bar_chart_rounded),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_items.length, (i) {
-              final active = i == activeIndex;
-              return GestureDetector(
-                onTap: () => onTap(i),
-                behavior: HitTestBehavior.opaque,
-                child: SizedBox(
-                  width: 60,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _items[i].icon,
-                        size: 22,
-                        color: active
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _items[i].label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: active
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: active
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      // Active indicator dot
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: active ? 18 : 0,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem {
-  const _NavItem({required this.label, required this.icon});
-
-  final String label;
-  final IconData icon;
 }

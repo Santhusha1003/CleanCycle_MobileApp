@@ -12,7 +12,7 @@ class AppPasswordField extends StatefulWidget {
   final FocusNode? focusNode;
 
   const AppPasswordField({
-    Key? key,
+    super.key,
     this.controller,
     this.label,
     this.hintText,
@@ -20,7 +20,7 @@ class AppPasswordField extends StatefulWidget {
     this.onChanged,
     this.validator,
     this.focusNode,
-  }) : super(key: key);
+  });
 
   @override
   State<AppPasswordField> createState() => _AppPasswordFieldState();

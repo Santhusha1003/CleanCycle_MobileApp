@@ -10,13 +10,13 @@ class AppSearchField extends StatefulWidget {
   final FocusNode? focusNode;
 
   const AppSearchField({
-    Key? key,
+    super.key,
     required this.controller,
     this.hintText,
     this.onChanged,
     this.onClear,
     this.focusNode,
-  }) : super(key: key);
+  });
 
   @override
   State<AppSearchField> createState() => _AppSearchFieldState();

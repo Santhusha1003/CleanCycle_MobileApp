@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../navigation/municipal_shell.dart';
 
 import '../models/driver.dart';
+import 'driver_details_screen.dart';
 import '../services/municipal/driver_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/common/app_card.dart';
@@ -16,14 +17,17 @@ import '../widgets/common/app_status_card.dart';
 import '../widgets/common/app_text_field.dart';
 
 class DriverManagementScreen extends StatefulWidget {
-  const DriverManagementScreen({super.key});
+  const DriverManagementScreen({super.key, this.firestore, this.service});
+
+  final FirebaseFirestore? firestore;
+  final DriverService? service;
 
   @override
   State<DriverManagementScreen> createState() => _DriverManagementScreenState();
 }
 
 class _DriverManagementScreenState extends State<DriverManagementScreen> {
-  final DriverService _driverService = DriverService();
+  late final DriverService _driverService = widget.service ?? DriverService();
   final TextEditingController _searchController = TextEditingController();
 
   // Real-time Firestore subscription.
@@ -53,7 +57,7 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
       _errorMessage = null;
     });
 
-    _driverSubscription = FirebaseFirestore.instance
+    _driverSubscription = (widget.firestore ?? FirebaseFirestore.instance)
         .collection('drivers')
         .snapshots()
         .listen(
@@ -124,7 +128,19 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
     return 'driver_$timestamp';
   }
 
-  Future<void> _showDriverForm({Driver? driver}) async {
+  void _openDriverDetails(Driver driver) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DriverDetailsScreen(
+          driver: driver,
+          onEdit: (record) => _showDriverForm(driver: record),
+          onDelete: _confirmDelete,
+        ),
+      ),
+    );
+  }
+
+  Future<Driver?> _showDriverForm({Driver? driver}) async {
     final isEditing = driver != null;
     final formKey = GlobalKey<FormState>();
     final driverIdController = TextEditingController(
@@ -150,7 +166,7 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
     DateTime? licenseExpiryDate = driver?.licenseExpiryDate;
     String statusValue = driver?.status ?? 'available';
 
-    final result = await showModalBottomSheet<bool>(
+    final result = await showModalBottomSheet<Driver>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -346,7 +362,8 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                                 updatedAt: DateTime.now(),
                               );
 
-                              bool success = false;
+                              final messenger = ScaffoldMessenger.of(context);
+                              final sheetNavigator = Navigator.of(sheetContext);
                               String successMessage = '';
 
                               try {
@@ -364,12 +381,11 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                                   successMessage =
                                       'Driver created successfully.';
                                 }
-                                success = true;
                               } on DriverServiceException catch (exception) {
-                                if (!mounted) return;
+                                if (!mounted || !sheetContext.mounted) return;
                                 final errorMessage = exception.message;
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                if (!mounted || !sheetContext.mounted) return;
+                                messenger.showSnackBar(
                                   SnackBar(
                                     content: Text(errorMessage),
                                     backgroundColor: AppColors.error,
@@ -377,12 +393,12 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                                 );
                                 return;
                               } on Exception catch (exception) {
-                                if (!mounted) return;
+                                if (!mounted || !sheetContext.mounted) return;
                                 final errorMessage = _safeErrorMessage(
                                   exception,
                                 );
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                if (!mounted || !sheetContext.mounted) return;
+                                messenger.showSnackBar(
                                   SnackBar(
                                     content: Text(errorMessage),
                                     backgroundColor: AppColors.error,
@@ -391,16 +407,15 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                                 return;
                               }
 
-                              if (!mounted) return;
-                              final safeContext = context;
-                              Navigator.pop(sheetContext, success);
-                              ScaffoldMessenger.of(safeContext).showSnackBar(
+                              if (!mounted || !sheetContext.mounted) return;
+
+                              sheetNavigator.pop(driverPayload);
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(successMessage),
                                   backgroundColor: AppColors.success,
                                 ),
                               );
-                              await _loadDrivers();
                             },
                           ),
                         ],
@@ -415,12 +430,13 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
       },
     );
 
-    if (result == true) {
+    if (result != null && mounted) {
       await _loadDrivers();
     }
+    return result;
   }
 
-  Future<void> _confirmDelete(Driver driver) async {
+  Future<bool> _confirmDelete(Driver driver) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -444,12 +460,12 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
     );
 
     if (confirmed != true) {
-      return;
+      return false;
     }
 
     try {
       await _driverService.deleteDriver(driverId: driver.driverId);
-      if (!mounted) return;
+      if (!mounted) return true;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Driver deleted successfully.'),
@@ -457,8 +473,9 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
         ),
       );
       await _loadDrivers();
+      return true;
     } on DriverServiceException catch (exception) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(exception.message),
@@ -466,7 +483,7 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
         ),
       );
     } on Exception catch (exception) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_safeErrorMessage(exception)),
@@ -474,6 +491,7 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
         ),
       );
     }
+    return false;
   }
 
   @override
@@ -610,11 +628,12 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                 Expanded(
                   child: ListView.separated(
                     itemCount: _filteredDrivers.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final driver = _filteredDrivers[index];
 
                       return AppCard(
+                        onTap: () => _openDriverDetails(driver),
                         color: AppColors.greenSurface,
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -665,6 +684,12 @@ class _DriverManagementScreenState extends State<DriverManagementScreen> {
                                 spacing: 12,
                                 runSpacing: 8,
                                 children: [
+                                  AppSecondaryButton(
+                                    label: 'View details',
+                                    compact: true,
+                                    icon: Icons.info_outline,
+                                    onPressed: () => _openDriverDetails(driver),
+                                  ),
                                   AppSecondaryButton(
                                     label: 'Edit',
                                     compact: true,

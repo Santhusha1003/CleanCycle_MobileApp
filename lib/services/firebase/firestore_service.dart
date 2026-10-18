@@ -21,8 +21,11 @@ class FirestoreService extends FirebaseService {
       final doc = await _firestore.doc(path).get();
       if (!doc.exists) return null;
       return doc.data();
-    } on FirebaseException catch (exception) {
-      throw FirebaseServiceException.fromFirebaseException(exception);
+    } on FirebaseException catch (exception, stack) {
+      Error.throwWithStackTrace(
+        FirebaseServiceException.fromFirebaseException(exception),
+        stack,
+      );
     }
   }
 
@@ -38,6 +41,31 @@ class FirestoreService extends FirebaseService {
           .toList();
     } on FirebaseException catch (exception) {
       throw FirebaseServiceException.fromFirebaseException(exception);
+    }
+  }
+
+  /// Reads records with canonical document IDs, independent of payload IDs.
+  Future<List<Map<String, dynamic>>> getCollectionWithIds({
+    required String path,
+  }) async {
+    final documents = await getCollectionSnapshots(path: path);
+    return documents
+        .map((doc) => {...?doc.data(), '_documentId': doc.id})
+        .toList();
+  }
+
+  /// Reads documents with their IDs for models that support older schemas.
+  Future<List<DocumentSnapshot<Map<String, dynamic>>>> getCollectionSnapshots({
+    required String path,
+  }) async {
+    try {
+      final snapshot = await _firestore.collection(path).get();
+      return snapshot.docs;
+    } on FirebaseException catch (exception, stack) {
+      Error.throwWithStackTrace(
+        FirebaseServiceException.fromFirebaseException(exception),
+        stack,
+      );
     }
   }
 
@@ -74,8 +102,11 @@ class FirestoreService extends FirebaseService {
   }) async {
     try {
       await _firestore.doc(path).update(data);
-    } on FirebaseException catch (exception) {
-      throw FirebaseServiceException.fromFirebaseException(exception);
+    } on FirebaseException catch (exception, stack) {
+      Error.throwWithStackTrace(
+        FirebaseServiceException.fromFirebaseException(exception),
+        stack,
+      );
     }
   }
 

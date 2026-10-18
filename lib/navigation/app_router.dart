@@ -1,26 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
-import '../screens/driver_management_screen.dart';
-import '../screens/driver_dashboard_screen.dart';
-import '../screens/login_screen.dart';
-import '../screens/municipal_dashboard_screen.dart';
-import '../screens/reports_analytics_screen.dart';
+import '../vishani/screens/tracking_dashboard_screen.dart';
+import '../vishani/screens/driver_profile_screen.dart';
+import '../features/auth/presentation/screens/auth_gate.dart';
+import '../features/auth/presentation/screens/create_account_screen.dart';
+import '../features/auth/presentation/auth_controller.dart';
+import '../features/profile/presentation/screens/account_settings_screen.dart';
+import '../features/notifications/presentation/notification_settings_screen.dart';
+import '../core/constants/app_roles.dart';
+import '../theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import '../collection_schedule/screens/home_dashboard_screen.dart';
+import '../collection_schedule/screens/collection_schedule_screen.dart';
+import '../collection_schedule/screens/collection_history_screen.dart';
+import '../collection_schedule/screens/missed_collection_report_screen.dart';
+import '../collection_schedule/screens/recycling_tips_screen.dart';
+import '../collection_schedule/screens/recycling_centre_locator_screen.dart';
 import '../screens/resident_dashboard_screen.dart';
 import '../screens/schedule_management_screen.dart';
 import '../screens/splash_screen.dart';
-import '../screens/staff_management_screen.dart';
-import '../screens/vehicle_management_screen.dart';
 import 'app_routes.dart';
+import 'municipal_shell.dart';
 
 /// Centralized router configuration for the CleanCycle application.
 ///
 /// This class manages navigation and route building for the app.
 /// It provides a consistent interface for navigation across the application
-/// and supports role-based route restrictions via NavigationGuard.
+/// and supports role restrictions using the authenticated AppUser profile.
 ///
 /// Currently uses Flutter's standard Navigator with MaterialApp.
-/// Route building is role-aware: screens are built based on the route name.
-/// Access control is enforced by NavigationGuard in onGenerateRoute.
+/// Named routes use the integrated AuthController role. These UI guards do
+/// not replace server-side Firestore authorization.
 class AppRouter {
   AppRouter._();
 
@@ -32,6 +43,9 @@ class AppRouter {
   /// **Role-based access control is enforced here.**
   /// If a user lacks permission for a route, navigation is redirected.
   static Route<dynamic> generateRoute(RouteSettings settings) {
+    if (kDebugMode) {
+      debugPrint('[AUTH DEBUG] AppRouter requested route: ${settings.name}');
+    }
     switch (settings.name) {
       // Common routes
       case AppRoutes.splash:
@@ -41,37 +55,81 @@ class AppRouter {
         );
       case AppRoutes.login:
         return MaterialPageRoute(
-          builder: (context) => const LoginScreen(),
+          builder: (context) => const AuthGate(),
           settings: settings,
         );
       case AppRoutes.register:
         return MaterialPageRoute(
-          builder: (context) => const LoginScreen(), // Placeholder
+          builder: (context) => const CreateAccountScreen(),
           settings: settings,
         );
 
       // Resident routes
       case AppRoutes.residentDashboard:
         return MaterialPageRoute(
-          builder: (context) => const ResidentDashboardScreen(),
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: HomeDashboardScreen(),
+          ),
           settings: settings,
         );
       case AppRoutes.collectionSchedule:
-      case AppRoutes.collectionDetails:
-      case AppRoutes.recycling:
+        return MaterialPageRoute(
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: CollectionScheduleScreen(),
+          ),
+          settings: settings,
+        );
       case AppRoutes.collectionHistory:
+        return MaterialPageRoute(
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: CollectionHistoryScreen(),
+          ),
+          settings: settings,
+        );
       case AppRoutes.missedCollection:
-      case AppRoutes.specialPickup:
+        return MaterialPageRoute(
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: MissedCollectionReportScreen(),
+          ),
+          settings: settings,
+        );
+      case AppRoutes.recycling:
+        return MaterialPageRoute(
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: RecyclingTipsScreen(),
+          ),
+          settings: settings,
+        );
       case AppRoutes.recyclingCentres:
         return MaterialPageRoute(
-          builder: (context) => const ResidentDashboardScreen(), // Placeholder
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: RecyclingCentreLocatorScreen(),
+          ),
+          settings: settings,
+        );
+      case AppRoutes.collectionDetails:
+      case AppRoutes.specialPickup:
+        return MaterialPageRoute(
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.resident,
+            child: ResidentDashboardScreen(),
+          ),
           settings: settings,
         );
 
       // Driver routes
       case AppRoutes.driverDashboard:
         return MaterialPageRoute(
-          builder: (context) => const DriverDashboardScreen(),
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.driver,
+            child: TrackingDashboardScreen(),
+          ),
           settings: settings,
         );
       case AppRoutes.assignedRoutes:
@@ -79,49 +137,61 @@ class AppRouter {
       case AppRoutes.collectionStatus:
       case AppRoutes.collectionIssue:
         return MaterialPageRoute(
-          builder: (context) => const DriverDashboardScreen(), // Placeholder
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.driver,
+            child: TrackingDashboardScreen(),
+          ),
           settings: settings,
         );
 
       // Municipal Officer routes
       case AppRoutes.municipalDashboard:
-        return MaterialPageRoute(
-          builder: (context) => const MunicipalDashboardScreen(),
-          settings: settings,
-        );
       case AppRoutes.vehicleManagement:
-        return MaterialPageRoute(
-          builder: (context) => const VehicleManagementScreen(),
-          settings: settings,
-        );
       case AppRoutes.driverManagement:
-        return MaterialPageRoute(
-          builder: (context) => const DriverManagementScreen(),
-          settings: settings,
-        );
       case AppRoutes.staffManagement:
+      case AppRoutes.reportsAnalytics:
         return MaterialPageRoute(
-          builder: (context) => const StaffManagementScreen(),
+          builder: (context) => _AuthenticatedRoute(
+            role: AppRoles.municipalOfficer,
+            child: Theme(
+              data: AppTheme.lightTheme,
+              child: MunicipalShell(initialRoute: settings.name!),
+            ),
+          ),
           settings: settings,
         );
       case AppRoutes.scheduleManagement:
         return MaterialPageRoute(
-          builder: (context) => const ScheduleManagementScreen(),
-          settings: settings,
-        );
-      case AppRoutes.reportsAnalytics:
-        return MaterialPageRoute(
-          builder: (context) => const ReportsAnalyticsScreen(),
+          builder: (context) => _AuthenticatedRoute(
+            role: AppRoles.municipalOfficer,
+            child: Theme(
+              data: AppTheme.lightTheme,
+              child: const ScheduleManagementScreen(),
+            ),
+          ),
           settings: settings,
         );
 
-      // Common authenticated routes
+      // Existing Member 01 profile and notification settings.
       case AppRoutes.profile:
       case AppRoutes.settings:
-      case AppRoutes.notifications:
+        return MaterialPageRoute(
+          builder: (context) =>
+              const _AuthenticatedRoute(child: AccountSettingsScreen()),
+          settings: settings,
+        );
       case AppRoutes.driverProfile:
         return MaterialPageRoute(
-          builder: (context) => const LoginScreen(), // Placeholder
+          builder: (context) => const _AuthenticatedRoute(
+            role: AppRoles.driver,
+            child: DriverProfileScreen(),
+          ),
+          settings: settings,
+        );
+      case AppRoutes.notifications:
+        return MaterialPageRoute(
+          builder: (context) =>
+              const _AuthenticatedRoute(child: NotificationSettingsScreen()),
           settings: settings,
         );
 
@@ -187,6 +257,35 @@ class AppRouter {
   /// Usage: AppRouter.popUntil(context, (route) => route.isFirst)
   static void popUntil(BuildContext context, RoutePredicate predicate) {
     Navigator.popUntil(context, predicate);
+  }
+}
+
+/// Reject stale routes after logout or a role change. Firestore rules remain
+/// responsible for data authorization; a UI guard grants no permissions.
+class _AuthenticatedRoute extends StatelessWidget {
+  const _AuthenticatedRoute({required this.child, this.role});
+  final Widget child;
+  final String? role;
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthController>();
+    final allowed =
+        auth.status == AuthStatus.authenticated &&
+        auth.firebaseUser != null &&
+        !auth.firebaseUser!.isAnonymous &&
+        !auth.needsEmailVerification &&
+        auth.profile != null &&
+        AppRoles.isValid(auth.profile!.role) &&
+        (role == null || auth.profile!.role == role);
+    if (kDebugMode) {
+      debugPrint(
+        '[AUTH DEBUG] Route guard UID: ${auth.firebaseUser?.uid}; '
+        'role: ${auth.profile?.role}; expected: $role; allowed: $allowed; '
+        'destination: ${allowed ? child.runtimeType : AuthGate}',
+      );
+    }
+    return allowed ? child : const AuthGate();
   }
 }
 

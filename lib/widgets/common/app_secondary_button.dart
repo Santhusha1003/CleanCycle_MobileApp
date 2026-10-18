@@ -6,50 +6,74 @@ class AppSecondaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
+  final bool compact;
+  final bool destructive;
+  final IconData? icon;
   final double? height;
   final EdgeInsetsGeometry? padding;
 
   const AppSecondaryButton({
-    Key? key,
+    super.key,
     required this.label,
     required this.onPressed,
     this.isLoading = false,
+    this.compact = false,
+    this.destructive = false,
+    this.icon,
     this.height,
     this.padding,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    final ButtonStyle style = OutlinedButton.styleFrom(
-      foregroundColor: AppColors.primaryDark,
-      side: const BorderSide(color: AppColors.primary, width: 1.2),
+    final foreground = (destructive ? AppColors.error : AppColors.primaryDark);
+    final style = OutlinedButton.styleFrom(
+      side: BorderSide(
+        color: destructive ? AppColors.error : AppColors.primary,
+        width: 1.2,
+      ),
+      foregroundColor: foreground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       padding:
-          padding ?? const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      minimumSize: Size.fromHeight(height ?? 48),
-      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          padding ??
+          EdgeInsets.symmetric(
+            horizontal: compact ? 12 : 20,
+            vertical: compact ? 8 : 14,
+          ),
+      minimumSize: compact
+          ? Size(0, height ?? 36)
+          : Size.fromHeight(height ?? 48),
+      textStyle: TextStyle(
+        fontSize: compact ? 14 : 16,
+        fontWeight: FontWeight.w600,
+      ),
     );
 
     return OutlinedButton(
-      onPressed: (isLoading) ? null : onPressed,
+      onPressed: isLoading ? null : onPressed,
       style: style,
       child: SizedBox(
-        height: height ?? 48,
-        child: Center(
+        height: height ?? (compact ? 36 : 48),
+        child: Align(
+          widthFactor: compact ? 1 : null,
           child: isLoading
               ? SizedBox(
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(
-                    strokeWidth: 2.0,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primary,
-                    ),
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(foreground),
                   ),
                 )
-              : Text(
-                  label,
-                  style: const TextStyle(color: AppColors.primaryDark),
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: compact ? 18 : 20),
+                      const SizedBox(width: 8),
+                    ],
+                    Flexible(child: Text(label)),
+                  ],
                 ),
         ),
       ),

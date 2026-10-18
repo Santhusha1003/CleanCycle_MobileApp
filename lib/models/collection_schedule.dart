@@ -4,9 +4,8 @@ import 'base_model.dart';
 
 /// Represents a collection schedule stored in the `schedules` collection.
 ///
-/// The Firestore document ID is generated automatically and stored in the
-/// `scheduleId` field to keep the document stable while allowing multiple
-/// schedules for the same collection date.
+/// Municipal writes store the document ID in `scheduleId`. Older shared
+/// records can keep their identifier solely in the Firestore document path.
 class CollectionSchedule implements BaseModel {
   CollectionSchedule({
     required this.scheduleId,
@@ -17,6 +16,8 @@ class CollectionSchedule implements BaseModel {
     required this.wasteType,
     this.assignedVehicleId,
     this.assignedDriverId,
+    this.assignedDriverName,
+    this.assignedDriverUid,
     required this.status,
     this.notes,
     required this.createdAt,
@@ -31,17 +32,25 @@ class CollectionSchedule implements BaseModel {
   final String wasteType;
   final String? assignedVehicleId;
   final String? assignedDriverId;
+  final String? assignedDriverName;
+
+  /// Firebase Auth UID linked to the municipal Driver record. Never inferred
+  /// from [assignedDriverId].
+  final String? assignedDriverUid;
   final String status;
   final String? notes;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  // Older Member 02 records do not contain audit timestamps.
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
-  static DateTime _requiredDateTimeFromValue(
+  static DateTime? _dateTimeFromValue(
     Map<String, dynamic> map,
-    String key,
-  ) {
+    String key, {
+    bool required = true,
+  }) {
     final value = map[key];
     if (value == null) {
+      if (!required) return null;
       throw FormatException('Missing required field: $key');
     }
 
@@ -53,7 +62,14 @@ class CollectionSchedule implements BaseModel {
       return converted.toDate();
     }
 
-    throw FormatException('Field "$key" must be a DateTime or Timestamp.');
+    if (converted is String) {
+      final parsed = DateTime.tryParse(converted);
+      if (parsed != null) return parsed;
+    }
+
+    throw FormatException(
+      'Field "$key" must be a DateTime, Timestamp or valid ISO date string.',
+    );
   }
 
   static String _requiredStringFromMap(Map<String, dynamic> map, String key) {
@@ -65,6 +81,22 @@ class CollectionSchedule implements BaseModel {
       throw FormatException('Field "$key" must be a String.');
     }
     return value;
+  }
+
+  // Shared Resident records use display times (e.g. 8:00 AM).
+  static String _normalizeTime(String value) {
+    final trimmed = value.trim();
+    final match = RegExp(
+      r'^(\d{1,2}):(\d{2})\s*(AM|PM)$',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    if (match == null) return trimmed;
+    final hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    if (hour < 1 || hour > 12 || minute > 59) return trimmed;
+    final normalizedHour =
+        hour % 12 + (match.group(3)!.toUpperCase() == 'PM' ? 12 : 0);
+    return '${normalizedHour.toString().padLeft(2, '0')}:${match.group(2)}';
   }
 
   static bool _isValidTimeString(String value) {
@@ -105,22 +137,40 @@ class CollectionSchedule implements BaseModel {
       'wasteType': wasteType,
       'assignedVehicleId': assignedVehicleId,
       'assignedDriverId': assignedDriverId,
+      'assignedDriverName': assignedDriverName,
+      'assignedDriverUid': assignedDriverUid,
       'status': status,
       'notes': notes,
-      'createdAt': ModelValueConverter.toValue(createdAt),
-      'updatedAt': ModelValueConverter.toValue(updatedAt),
+      if (createdAt != null)
+        'createdAt': ModelValueConverter.toValue(createdAt),
+      if (updatedAt != null)
+        'updatedAt': ModelValueConverter.toValue(updatedAt),
     };
   }
 
-  factory CollectionSchedule.fromMap(Map<String, dynamic> map) {
-    final scheduleId = _requiredStringFromMap(map, 'scheduleId');
-    final zone = _requiredStringFromMap(map, 'zone');
-    final startTime = _requiredStringFromMap(map, 'startTime');
-    final endTime = _requiredStringFromMap(map, 'endTime');
-    final wasteType = _requiredStringFromMap(map, 'wasteType');
-    final status = _requiredStringFromMap(map, 'status');
-    final createdAt = _requiredDateTimeFromValue(map, 'createdAt');
-    final updatedAt = _requiredDateTimeFromValue(map, 'updatedAt');
+  factory CollectionSchedule.fromMap(
+    Map<String, dynamic> map, {
+    String? documentId,
+  }) {
+    final scheduleId = _requiredStringFromMap({
+      ...map,
+      'scheduleId': map['scheduleId'] ?? documentId,
+    }, 'scheduleId');
+    final zone = map['zone'] == null ? '' : _requiredStringFromMap(map, 'zone');
+    final startTime = _normalizeTime(_requiredStringFromMap(map, 'startTime'));
+    final endTime = _normalizeTime(_requiredStringFromMap(map, 'endTime'));
+    final wasteType = _requiredStringFromMap(
+      map,
+      'wasteType',
+    ).trim().toLowerCase();
+    final storedStatus = _requiredStringFromMap(
+      map,
+      'status',
+    ).trim().toLowerCase();
+    // Existing Resident terminology for the same scheduled collection state.
+    final status = storedStatus == 'upcoming' ? 'scheduled' : storedStatus;
+    final createdAt = _dateTimeFromValue(map, 'createdAt', required: false);
+    final updatedAt = _dateTimeFromValue(map, 'updatedAt', required: false);
 
     if (!_isValidTimeString(startTime)) {
       throw FormatException('Field "startTime" must be a valid HH:mm value.');
@@ -129,19 +179,7 @@ class CollectionSchedule implements BaseModel {
       throw FormatException('Field "endTime" must be a valid HH:mm value.');
     }
 
-    final collectionDateValue = map['collectionDate'];
-    if (collectionDateValue == null) {
-      throw const FormatException('Missing required field: collectionDate');
-    }
-
-    final convertedCollectionDate = ModelValueConverter.fromValue(
-      collectionDateValue,
-    );
-    if (convertedCollectionDate is! DateTime) {
-      throw const FormatException(
-        'Field "collectionDate" must be a DateTime or Timestamp.',
-      );
-    }
+    final convertedCollectionDate = _dateTimeFromValue(map, 'collectionDate')!;
 
     return CollectionSchedule(
       scheduleId: scheduleId,
@@ -149,7 +187,7 @@ class CollectionSchedule implements BaseModel {
       collectionDate: convertedCollectionDate,
       startTime: startTime,
       endTime: endTime,
-      wasteType: wasteType,
+      wasteType: wasteType == 'recyclable waste' ? 'recyclable' : wasteType,
       assignedVehicleId: ModelMapHelper.nullableValue<String>(
         map,
         'assignedVehicleId',
@@ -158,8 +196,19 @@ class CollectionSchedule implements BaseModel {
         map,
         'assignedDriverId',
       ),
+      assignedDriverName: ModelMapHelper.nullableValue<String>(
+        map,
+        'assignedDriverName',
+      ),
+      assignedDriverUid: ModelMapHelper.nullableValue<String>(
+        map,
+        'assignedDriverUid',
+      ),
       status: status,
-      notes: ModelMapHelper.nullableValue<String>(map, 'notes'),
+      notes: ModelMapHelper.nullableValue<String>(
+        map,
+        map['notes'] == null ? 'instructions' : 'notes',
+      ),
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -174,6 +223,6 @@ class CollectionSchedule implements BaseModel {
         'CollectionSchedule document snapshot is null for document: ${snapshot.id}',
       );
     }
-    return CollectionSchedule.fromMap(data);
+    return CollectionSchedule.fromMap(data, documentId: snapshot.id);
   }
 }

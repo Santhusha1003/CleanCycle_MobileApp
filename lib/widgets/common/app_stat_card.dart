@@ -12,7 +12,7 @@ class AppStatCard extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
 
   const AppStatCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.value,
     this.subtitle,
@@ -20,7 +20,7 @@ class AppStatCard extends StatelessWidget {
     this.iconBackground,
     this.onTap,
     this.padding,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -1,17 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
+import '../models/driver.dart';
+import '../models/vehicle.dart';
 import '../models/collection_schedule.dart';
+import '../services/municipal/driver_service.dart';
 import '../services/municipal/schedule_service.dart';
+import '../services/municipal/vehicle_service.dart';
+import '../services/firebase/firebase_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/common/app_card.dart';
 import '../widgets/common/app_primary_button.dart';
+import '../widgets/common/municipal_add_button.dart';
 import '../widgets/common/app_search_field.dart';
 import '../widgets/common/app_secondary_button.dart';
+import '../widgets/common/municipal_crud_actions.dart';
 import '../widgets/common/app_status_card.dart';
 import '../widgets/common/app_text_field.dart';
 
 class ScheduleManagementScreen extends StatefulWidget {
-  const ScheduleManagementScreen({super.key});
+  const ScheduleManagementScreen({
+    super.key,
+    this.scheduleService,
+    this.driverService,
+    this.vehicleService,
+  });
+
+  final ScheduleService? scheduleService;
+  final DriverService? driverService;
+  final VehicleService? vehicleService;
 
   @override
   State<ScheduleManagementScreen> createState() =>
@@ -19,7 +36,14 @@ class ScheduleManagementScreen extends StatefulWidget {
 }
 
 class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
-  final ScheduleService _scheduleService = ScheduleService();
+  late final ScheduleService _scheduleService =
+      widget.scheduleService ?? ScheduleService();
+  late final DriverService _driverService =
+      widget.driverService ?? DriverService();
+  late final VehicleService _vehicleService =
+      widget.vehicleService ?? VehicleService();
+  bool _deleteInProgress = false;
+  bool _publishingResidentProjections = false;
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
@@ -75,6 +99,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
         s.status,
         s.assignedVehicleId ?? '',
         s.assignedDriverId ?? '',
+        s.assignedDriverName ?? '',
       ];
       return fields.any((f) => f.toLowerCase().contains(q));
     }).toList();
@@ -96,20 +121,42 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
   // ─── Add / Edit form ───────────────────────────────────────────────────────
 
   Future<void> _showScheduleForm({CollectionSchedule? schedule}) async {
+    var drivers = <Driver>[];
+    var vehicles = <Vehicle>[];
+    String? assignmentLoadError;
+    try {
+      final results = await Future.wait([
+        _driverService.getDrivers(),
+        _vehicleService.getVehicles(),
+      ]);
+      drivers = results[0] as List<Driver>;
+      vehicles = (results[1] as List<Vehicle>)
+          .where(
+            (vehicle) => ![
+              'maintenance',
+              'out_of_service',
+              'retired',
+            ].contains(vehicle.status),
+          )
+          .toList();
+    } on Exception catch (error) {
+      assignmentLoadError =
+          'Driver and vehicle lists are unavailable. You can still save an unassigned schedule.';
+      debugPrint('Schedule assignment options failed to load: $error');
+    }
+    if (!mounted) return;
     final isEditing = schedule != null;
     final formKey = GlobalKey<FormState>();
+    final scheduleIdFieldKey = GlobalKey<FormFieldState<String>>();
+    final zoneFieldKey = GlobalKey<FormFieldState<String>>();
 
     final scheduleIdController = TextEditingController(
       text: schedule?.scheduleId ?? _generateScheduleId(),
     );
     final zoneController = TextEditingController(text: schedule?.zone ?? '');
-    final vehicleController = TextEditingController(
-      text: schedule?.assignedVehicleId ?? '',
-    );
-    final driverController = TextEditingController(
-      text: schedule?.assignedDriverId ?? '',
-    );
     final notesController = TextEditingController(text: schedule?.notes ?? '');
+    var scheduleIdValue = scheduleIdController.text;
+    var zoneValue = zoneController.text;
 
     DateTime selectedDate = schedule?.collectionDate ?? DateTime.now();
     TimeOfDay selectedStartTime = schedule != null
@@ -120,6 +167,10 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
         : const TimeOfDay(hour: 17, minute: 0);
     String wasteTypeValue = schedule?.wasteType ?? 'general';
     String statusValue = schedule?.status ?? 'scheduled';
+    String? selectedDriverId = schedule?.assignedDriverId;
+    String? selectedVehicleId = schedule?.assignedVehicleId;
+    bool isSaving = false;
+    String? saveError;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -172,12 +223,32 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                           ),
                           const SizedBox(height: 16),
 
+                          if (assignmentLoadError != null) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF4DE),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                assignmentLoadError,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+
                           // ── Schedule ID (read-only when editing) ─────────
                           AppTextField(
+                            fieldKey: scheduleIdFieldKey,
                             controller: scheduleIdController,
                             label: 'Schedule ID',
                             hintText: 'schedule_123',
                             readOnly: isEditing,
+                            onChanged: (value) => scheduleIdValue = value,
                             validator: (value) {
                               if ((value ?? '').trim().isEmpty) {
                                 return 'Schedule ID is required';
@@ -189,9 +260,13 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
 
                           // ── Zone ─────────────────────────────────────────
                           AppTextField(
+                            fieldKey: zoneFieldKey,
                             controller: zoneController,
                             label: 'Zone',
                             hintText: 'e.g. North Zone',
+                            onChanged: (value) {
+                              zoneValue = value;
+                            },
                             validator: (value) {
                               if ((value ?? '').trim().isEmpty) {
                                 return 'Zone is required';
@@ -205,6 +280,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                           _SectionLabel(label: 'Collection Date'),
                           const SizedBox(height: 6),
                           AppSecondaryButton(
+                            compact: true,
                             label: 'Date: ${_formatDate(selectedDate)}',
                             onPressed: () async {
                               final picked = await showDatePicker(
@@ -230,6 +306,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                     _SectionLabel(label: 'Start Time'),
                                     const SizedBox(height: 6),
                                     AppSecondaryButton(
+                                      compact: true,
                                       label: _formatTime(selectedStartTime),
                                       onPressed: () async {
                                         final picked = await showTimePicker(
@@ -263,6 +340,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                     _SectionLabel(label: 'End Time'),
                                     const SizedBox(height: 6),
                                     AppSecondaryButton(
+                                      compact: true,
                                       label: _formatTime(selectedEndTime),
                                       onPressed: () async {
                                         final picked = await showTimePicker(
@@ -294,6 +372,7 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
 
                           // ── Waste Type ────────────────────────────────────
                           DropdownButtonFormField<String>(
+                            isExpanded: true,
                             initialValue:
                                 ScheduleService.allowedWasteTypes.contains(
                                   wasteTypeValue,
@@ -322,21 +401,49 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
 
                           // ── Status ────────────────────────────────────────
                           DropdownButtonFormField<String>(
+                            isExpanded: true,
                             initialValue:
                                 ScheduleService.allowedStatuses.contains(
                                   statusValue,
                                 )
                                 ? statusValue
                                 : 'scheduled',
-                            decoration: const InputDecoration(
+                            iconEnabledColor: _statusStyle(
+                              statusValue,
+                            ).foreground,
+                            decoration: InputDecoration(
                               labelText: 'Status',
-                              border: OutlineInputBorder(),
+                              filled: true,
+                              fillColor: _statusStyle(statusValue).background,
+                              prefixIcon: Icon(
+                                _statusStyle(statusValue).icon,
+                                color: _statusStyle(statusValue).foreground,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                             items: ScheduleService.allowedStatuses
                                 .map(
                                   (s) => DropdownMenuItem(
                                     value: s,
-                                    child: Text(_statusLabel(s)),
+                                    child: AppStatusCard(
+                                      statusText: _statusLabel(s),
+                                      color: _statusStyle(s).background,
+                                      textColor: _statusStyle(s).foreground,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            selectedItemBuilder: (context) => ScheduleService
+                                .allowedStatuses
+                                .map(
+                                  (s) => Text(
+                                    _statusLabel(s),
+                                    style: TextStyle(
+                                      color: _statusStyle(s).foreground,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 )
                                 .toList(),
@@ -348,19 +455,83 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // ── Assigned Vehicle (optional) ───────────────────
-                          AppTextField(
-                            controller: vehicleController,
-                            label: 'Assigned Vehicle ID (optional)',
-                            hintText: 'e.g. ABC-1234',
+                          // ── Verified municipal assignments ───────────────
+                          DropdownButtonFormField<String>(
+                            key: ValueKey('driver-$selectedDriverId'),
+                            isExpanded: true,
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
+                            initialValue:
+                                drivers.any(
+                                  (driver) =>
+                                      driver.driverId == selectedDriverId,
+                                )
+                                ? selectedDriverId
+                                : null,
+                            decoration: const InputDecoration(
+                              labelText: 'Assigned Driver (optional)',
+                            ),
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('No Driver Assigned'),
+                              ),
+                              ...drivers.map(
+                                (driver) => DropdownMenuItem(
+                                  value: driver.driverId,
+                                  child: Text(
+                                    '${driver.fullName} · ${driver.driverId}',
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: isSaving
+                                ? null
+                                : (value) => setModalState(() {
+                                    selectedDriverId = value;
+                                    saveError = null;
+                                  }),
                           ),
                           const SizedBox(height: 12),
-
-                          // ── Assigned Driver (optional) ────────────────────
-                          AppTextField(
-                            controller: driverController,
-                            label: 'Assigned Driver ID (optional)',
-                            hintText: 'e.g. driver_123',
+                          DropdownButtonFormField<String>(
+                            key: ValueKey(
+                              'vehicle-$selectedDriverId-$selectedVehicleId',
+                            ),
+                            isExpanded: true,
+                            autovalidateMode: selectedVehicleId == null
+                                ? AutovalidateMode.disabled
+                                : AutovalidateMode.always,
+                            initialValue:
+                                vehicles.any(
+                                  (vehicle) =>
+                                      vehicle.registrationNumber ==
+                                      selectedVehicleId,
+                                )
+                                ? selectedVehicleId
+                                : null,
+                            decoration: const InputDecoration(
+                              labelText: 'Assigned Vehicle (optional)',
+                            ),
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('No Vehicle assigned'),
+                              ),
+                              ...vehicles.map(
+                                (vehicle) => DropdownMenuItem(
+                                  value: vehicle.registrationNumber,
+                                  child: Text(
+                                    '${vehicle.registrationNumber} · ${vehicle.vehicleType}',
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: isSaving
+                                ? null
+                                : (value) => setModalState(() {
+                                    selectedVehicleId = value;
+                                    saveError = null;
+                                  }),
                           ),
                           const SizedBox(height: 12),
 
@@ -374,14 +545,45 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                           ),
                           const SizedBox(height: 20),
 
+                          if (saveError != null) ...[
+                            Semantics(
+                              liveRegion: true,
+                              child: Text(
+                                saveError!,
+                                style: const TextStyle(
+                                  color: AppColors.error,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+
                           // ── Submit ────────────────────────────────────────
                           AppPrimaryButton(
+                            compact: true,
+                            icon: Icons.check,
                             label: isEditing
                                 ? 'Update Schedule'
                                 : 'Save Schedule',
-                            isLoading: false,
+                            isLoading: isSaving,
                             onPressed: () async {
+                              if (isSaving) return;
                               if (!formKey.currentState!.validate()) return;
+                              final scheduleId =
+                                  scheduleIdFieldKey.currentState?.value ??
+                                  scheduleIdValue;
+                              final zone =
+                                  zoneFieldKey.currentState?.value ?? zoneValue;
+                              if (scheduleId.trim().isEmpty ||
+                                  zone.trim().isEmpty) {
+                                setModalState(() {
+                                  saveError = scheduleId.trim().isEmpty
+                                      ? 'Schedule ID is required.'
+                                      : 'Zone is required.';
+                                });
+                                return;
+                              }
 
                               // Validate end time is not before start time
                               final startMinutes =
@@ -391,30 +593,29 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                   selectedEndTime.hour * 60 +
                                   selectedEndTime.minute;
                               if (endMinutes <= startMinutes) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'End time must be after start time.',
-                                    ),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
+                                setModalState(() {
+                                  saveError =
+                                      'End time must be after start time.';
+                                });
                                 return;
                               }
 
                               final schedulePayload = CollectionSchedule(
-                                scheduleId: scheduleIdController.text.trim(),
-                                zone: zoneController.text.trim(),
+                                scheduleId: scheduleId.trim(),
+                                zone: zone.trim(),
                                 collectionDate: selectedDate,
                                 startTime: _formatTime(selectedStartTime),
                                 endTime: _formatTime(selectedEndTime),
                                 wasteType: wasteTypeValue,
-                                assignedVehicleId: _normalizeOptional(
-                                  vehicleController.text,
-                                ),
-                                assignedDriverId: _normalizeOptional(
-                                  driverController.text,
-                                ),
+                                assignedVehicleId: selectedVehicleId,
+                                assignedDriverId: selectedDriverId,
+                                assignedDriverUid: drivers
+                                    .where(
+                                      (driver) =>
+                                          driver.driverId == selectedDriverId,
+                                    )
+                                    .firstOrNull
+                                    ?.authUid,
                                 status: statusValue,
                                 notes: _normalizeOptional(notesController.text),
                                 createdAt:
@@ -430,6 +631,15 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
 
                               String successMessage;
 
+                              if (kDebugMode) {
+                                debugPrint(
+                                  '[SCHEDULE SAVE] operation=${isEditing ? 'update' : 'create'} stage=calling_service fields=[scheduleId,zone,collectionDate,startTime,endTime,wasteType,status,assignedDriverId,assignedVehicleId,notes]',
+                                );
+                              }
+                              setModalState(() {
+                                isSaving = true;
+                                saveError = null;
+                              });
                               try {
                                 if (isEditing) {
                                   await _scheduleService.updateSchedule(
@@ -445,25 +655,34 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                                   successMessage =
                                       'Schedule created successfully.';
                                 }
-                              } on ScheduleServiceException catch (exception) {
-                                scaffoldMessenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(exception.message),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
-                                return;
-                              } on Exception catch (exception) {
-                                scaffoldMessenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(_safeErrorMessage(exception)),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
+                                if (kDebugMode) {
+                                  debugPrint(
+                                    '[SCHEDULE SAVE] operation=${isEditing ? 'update' : 'create'} stage=service_succeeded',
+                                  );
+                                }
+                              } on Object catch (exception, stack) {
+                                if (kDebugMode) {
+                                  final firebaseDetails =
+                                      exception is FirebaseServiceException
+                                      ? ' firebaseCode=${exception.code} firebaseMessage=${exception.message}'
+                                      : ' errorType=${exception.runtimeType}';
+                                  debugPrint(
+                                    '[SCHEDULE SAVE] operation=${isEditing ? 'update' : 'create'} stage=service_failed$firebaseDetails message=$exception',
+                                  );
+                                  debugPrintStack(stackTrace: stack);
+                                }
+                                if (!context.mounted) return;
+                                setModalState(() {
+                                  saveError = _scheduleSaveErrorMessage(
+                                    exception,
+                                  );
+                                  isSaving = false;
+                                });
                                 return;
                               }
 
-                              navigator.pop();
+                              if (!mounted) return;
+                              if (context.mounted) navigator.pop();
                               scaffoldMessenger.showSnackBar(
                                 SnackBar(
                                   content: Text(successMessage),
@@ -536,7 +755,12 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                 _dialogRow('Vehicle', schedule.assignedVehicleId!),
               if (schedule.assignedDriverId != null &&
                   schedule.assignedDriverId!.isNotEmpty)
-                _dialogRow('Driver', schedule.assignedDriverId!),
+                _dialogRow(
+                  'Driver',
+                  schedule.assignedDriverName == null
+                      ? schedule.assignedDriverId!
+                      : '${schedule.assignedDriverName} · ${schedule.assignedDriverId}',
+                ),
               if (schedule.notes != null && schedule.notes!.isNotEmpty)
                 _dialogRow('Notes', schedule.notes!),
               const SizedBox(height: 8),
@@ -552,7 +776,8 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                   ),
                   AppStatusCard(
                     statusText: _statusLabel(schedule.status),
-                    color: _statusColor(schedule.status),
+                    color: _statusStyle(schedule.status).background,
+                    textColor: _statusStyle(schedule.status).foreground,
                   ),
                 ],
               ),
@@ -573,18 +798,14 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
               ),
             ),
           ),
-          TextButton(
+          AppPrimaryButton(
+            label: 'Edit',
+            compact: true,
+            icon: Icons.edit_outlined,
             onPressed: () {
               Navigator.pop(dialogContext);
               _showScheduleForm(schedule: schedule);
             },
-            child: const Text(
-              'Edit',
-              style: TextStyle(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
         ],
       ),
@@ -619,50 +840,112 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
   // ─── Delete ────────────────────────────────────────────────────────────────
 
   Future<void> _confirmDelete(CollectionSchedule schedule) async {
+    // Cover both the dialog and service call so repeated taps cannot queue
+    // confirmations or delete the same schedule more than once.
+    if (_deleteInProgress) return;
+    _deleteInProgress = true;
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Delete Schedule?'),
+          content: const Text(
+            'Are you sure you want to delete this collection schedule? '
+            'This action cannot be undone.',
+          ),
+          actions: [
+            AppSecondaryButton(
+              label: 'Cancel',
+              compact: true,
+              onPressed: () => Navigator.pop(dialogContext, false),
+            ),
+            AppSecondaryButton(
+              label: 'Delete',
+              compact: true,
+              destructive: true,
+              icon: Icons.delete_outline,
+              onPressed: () => Navigator.pop(dialogContext, true),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !mounted) return;
+
+      try {
+        await _scheduleService.deleteSchedule(scheduleId: schedule.scheduleId);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Schedule deleted successfully.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        await _loadSchedules();
+      } on ScheduleServiceException catch (exception) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(exception.message),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      } on Exception catch (exception) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_safeErrorMessage(exception)),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      _deleteInProgress = false;
+    }
+  }
+
+  Future<void> _publishResidentProjections() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Schedule'),
-        content: Text(
-          'Delete the schedule for "${schedule.zone}" on '
-          '${_formatDate(schedule.collectionDate)}? '
-          'This action cannot be undone.',
+        title: const Text('Publish Resident schedules?'),
+        content: const Text(
+          'This will create or refresh the Resident-safe schedule projection '
+          'from existing municipal schedules. Driver assignments and tracking '
+          'identifiers are excluded. Internal schedules are not changed.',
         ),
         actions: [
-          TextButton(
+          AppSecondaryButton(
+            label: 'Cancel',
+            compact: true,
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          AppPrimaryButton(
+            label: 'Publish',
+            compact: true,
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Delete'),
           ),
         ],
       ),
     );
+    if (confirmed != true || !mounted) return;
 
-    if (confirmed != true) return;
-
+    setState(() => _publishingResidentProjections = true);
     try {
-      await _scheduleService.deleteSchedule(scheduleId: schedule.scheduleId);
+      final result = await _scheduleService
+          .publishExistingResidentProjections();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Schedule deleted successfully.'),
-          backgroundColor: AppColors.success,
-        ),
-      );
-      await _loadSchedules();
-    } on ScheduleServiceException catch (exception) {
-      if (!mounted) return;
+      final skipped = result.skippedCount;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(exception.message),
-          backgroundColor: AppColors.error,
+          content: Text(
+            'Published ${result.publishedCount} Resident schedule(s)'
+            '${skipped == 0 ? '.' : '; skipped $skipped incomplete record(s).'}',
+          ),
+          backgroundColor: AppColors.primary,
         ),
       );
-    } on Exception catch (exception) {
+    } on Object catch (exception) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -670,6 +953,8 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
           backgroundColor: AppColors.error,
         ),
       );
+    } finally {
+      if (mounted) setState(() => _publishingResidentProjections = false);
     }
   }
 
@@ -690,6 +975,21 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
             fontWeight: FontWeight.w700,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Publish Resident schedule projections',
+            onPressed: _publishingResidentProjections
+                ? null
+                : _publishResidentProjections,
+            icon: _publishingResidentProjections
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.publish_outlined),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -719,9 +1019,12 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
               const SizedBox(height: 16),
 
               // ── Add button ────────────────────────────────────────────
-              AppPrimaryButton(
-                label: 'Add Schedule',
-                onPressed: () => _showScheduleForm(),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: MunicipalAddButton(
+                  label: 'Add Schedule',
+                  onPressed: () => _showScheduleForm(),
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -837,36 +1140,6 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
 
   // ─── Static helpers ────────────────────────────────────────────────────────
 
-  static String _statusLabel(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'scheduled':
-        return 'Scheduled';
-      case 'in_progress':
-        return 'In Progress';
-      case 'completed':
-        return 'Completed';
-      case 'cancelled':
-        return 'Cancelled';
-      default:
-        return status;
-    }
-  }
-
-  static Color _statusColor(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'scheduled':
-        return const Color(0xFFEAF4FF);
-      case 'in_progress':
-        return AppColors.lightGreen;
-      case 'completed':
-        return AppColors.greenSurface;
-      case 'cancelled':
-        return const Color(0xFFFFEAEA);
-      default:
-        return AppColors.greenSurface;
-    }
-  }
-
   static String _wasteTypeLabel(String type) {
     switch (type.trim().toLowerCase()) {
       case 'general':
@@ -890,7 +1163,8 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
     return '$day/$month/${date.year}';
   }
 
-  static String _formatDateTime(DateTime date) {
+  static String _formatDateTime(DateTime? date) {
+    if (date == null) return 'Not recorded';
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
     final hour = date.hour.toString().padLeft(2, '0');
@@ -917,6 +1191,23 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
   static String? _normalizeOptional(String value) {
     final normalized = value.trim();
     return normalized.isEmpty ? null : normalized;
+  }
+
+  static String _scheduleSaveErrorMessage(Object exception) {
+    if (exception is ScheduleSavePermissionException) {
+      return exception.userMessage;
+    }
+    if (exception is FirebaseServiceException) {
+      return switch (exception.code) {
+        'permission-denied' =>
+          'Firestore denied schedule access (permission-denied). Check the signed-in account role and the published Firestore rules. The schedule was not saved.',
+        'unauthenticated' => 'Sign in again before saving this schedule.',
+        'unavailable' =>
+          'The schedule could not be saved. Check your connection and retry.',
+        _ => 'Unable to save the schedule (${exception.code}). Please retry.',
+      };
+    }
+    return _safeErrorMessage(exception);
   }
 
   static String _safeErrorMessage(Object exception) {
@@ -969,6 +1260,7 @@ class _ScheduleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      color: _statusStyle(schedule.status).background,
       padding: const EdgeInsets.all(16),
       onTap: onView,
       child: Column(
@@ -1018,7 +1310,8 @@ class _ScheduleCard extends StatelessWidget {
               ),
               AppStatusCard(
                 statusText: _statusLabel(schedule.status),
-                color: _statusColor(schedule.status),
+                color: _statusStyle(schedule.status).background,
+                textColor: _statusStyle(schedule.status).foreground,
               ),
             ],
           ),
@@ -1045,25 +1338,23 @@ class _ScheduleCard extends StatelessWidget {
           if (schedule.assignedDriverId != null &&
               schedule.assignedDriverId!.isNotEmpty) ...[
             const SizedBox(height: 6),
-            _detailRow(Icons.person_outlined, schedule.assignedDriverId!),
+            _detailRow(
+              Icons.person_outlined,
+              schedule.assignedDriverName == null
+                  ? schedule.assignedDriverId!
+                  : '${schedule.assignedDriverName} · ${schedule.assignedDriverId}',
+            ),
           ],
           if (schedule.notes != null && schedule.notes!.isNotEmpty) ...[
             const SizedBox(height: 6),
             _detailRow(Icons.notes_outlined, schedule.notes!),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // ── Actions ──────────────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: AppSecondaryButton(label: 'Edit', onPressed: onEdit),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AppSecondaryButton(label: 'Delete', onPressed: onDelete),
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: MunicipalCrudActions(onEdit: onEdit, onDelete: onDelete),
           ),
         ],
       ),
@@ -1091,36 +1382,6 @@ class _ScheduleCard extends StatelessWidget {
     );
   }
 
-  static String _statusLabel(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'scheduled':
-        return 'Scheduled';
-      case 'in_progress':
-        return 'In Progress';
-      case 'completed':
-        return 'Completed';
-      case 'cancelled':
-        return 'Cancelled';
-      default:
-        return status;
-    }
-  }
-
-  static Color _statusColor(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'scheduled':
-        return const Color(0xFFEAF4FF);
-      case 'in_progress':
-        return AppColors.lightGreen;
-      case 'completed':
-        return AppColors.greenSurface;
-      case 'cancelled':
-        return const Color(0xFFFFEAEA);
-      default:
-        return AppColors.greenSurface;
-    }
-  }
-
   static String _wasteTypeLabel(String type) {
     switch (type.trim().toLowerCase()) {
       case 'general':
@@ -1144,3 +1405,56 @@ class _ScheduleCard extends StatelessWidget {
     return '$day/$month/${date.year}';
   }
 }
+
+// One semantic palette for form options, selected fields and schedule badges.
+class _ScheduleStatusStyle {
+  const _ScheduleStatusStyle(
+    this.label,
+    this.background,
+    this.foreground,
+    this.icon,
+  );
+  final String label;
+  final Color background;
+  final Color foreground;
+  final IconData icon;
+}
+
+const _scheduleStatusStyles = {
+  'scheduled': _ScheduleStatusStyle(
+    'Scheduled',
+    Color(0xFFEAF4FF),
+    Color(0xFF215A9B),
+    Icons.event_outlined,
+  ),
+  'in_progress': _ScheduleStatusStyle(
+    'In Progress',
+    Color(0xFFFFF4DE),
+    Color(0xFF8A5300),
+    Icons.timelapse_outlined,
+  ),
+  'completed': _ScheduleStatusStyle(
+    'Completed',
+    AppColors.greenSurface,
+    AppColors.primaryDark,
+    Icons.check_circle_outline,
+  ),
+  'cancelled': _ScheduleStatusStyle(
+    'Cancelled',
+    Color(0xFFFFEAEA),
+    Color(0xFF9F3030),
+    Icons.cancel_outlined,
+  ),
+};
+
+_ScheduleStatusStyle _statusStyle(String status) =>
+    _scheduleStatusStyles[status.trim().toLowerCase()] ??
+    const _ScheduleStatusStyle(
+      '',
+      AppColors.greenSurface,
+      AppColors.textPrimary,
+      Icons.info_outline,
+    );
+
+String _statusLabel(String status) =>
+    _scheduleStatusStyles[status.trim().toLowerCase()]?.label ?? status;

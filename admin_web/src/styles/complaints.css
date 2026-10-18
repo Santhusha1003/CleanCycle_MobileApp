@@ -1,0 +1,17 @@
+.complaints-page { min-width:0; }
+.complaints-notice { display:flex; align-items:flex-start; gap:14px; padding:18px 20px; margin:0 0 32px; border:1px solid #d8e7dd; border-radius:12px; background:#f0f7f2; }
+.complaints-notice svg { width:24px; height:24px; flex-shrink:0; color:#267d4d; margin-top:2px; }
+.complaints-notice h2 { margin:0 0 5px; font-size:14px; font-weight:650; color:#245139; }
+.complaints-notice p { margin:0; color:#52675a; font-size:13px; line-height:1.65; }
+.complaints-section-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; }
+.complaints-section-header h2 { margin:0 0 6px; color:#163b2f; font-size:19px; }
+.complaints-section-header p { margin:0; color:#607468; font-size:13px; line-height:1.6; }
+.complaints-page .op-search { min-width:min(220px,100%); }
+.complaints-page .op-table td { vertical-align:top; }
+@media(max-width:600px) {
+  .complaints-notice { padding:16px; margin-bottom:24px; }
+  .complaints-section-header { flex-wrap:wrap; gap:10px; }
+  .complaints-page .op-toolbar label { width:100%; }
+  .complaints-page .op-toolbar select { max-width:none; }
+  .complaints-page .op-toolbar > button { width:100%; }
+}

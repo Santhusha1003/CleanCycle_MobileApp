@@ -6,7 +6,6 @@ import AdminLayout from './layouts/AdminLayout'
 import DashboardPage    from './pages/DashboardPage'
 import VehiclesPage     from './pages/VehiclesPage'
 import StaffPage        from './pages/StaffPage'
-import RoutesPage       from './pages/RoutesPage'
 import DriversPage      from './pages/DriversPage'
 import ReportsPage      from './pages/ReportsPage'
 
@@ -38,8 +37,6 @@ export default function App() {
         {/* 4. Staff Management */}
         <Route path="/staff"            element={<StaffPage />} />
 
-        {/* 5. Route Management */}
-        <Route path="/routes"           element={<RoutesPage />} />
 
         {/* 6. Driver Management */}
         <Route path="/drivers"          element={<DriversPage />} />

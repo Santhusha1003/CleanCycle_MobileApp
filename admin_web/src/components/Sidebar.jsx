@@ -47,17 +47,6 @@ function IconStaff() {
   )
 }
 
-function IconRoute() {
-  return (
-    <svg className="sidebar__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="6" cy="19" r="3" />
-      <circle cx="18" cy="5" r="3" />
-      <path d="M6 16V9a6 6 0 0 1 6-6h.5" />
-      <path d="M18 8v7a6 6 0 0 1-6 6h-.5" />
-    </svg>
-  )
-}
-
 function IconDriver() {
   return (
     <svg className="sidebar__nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -144,7 +133,6 @@ const NAV_ITEMS = [
   { to: '/users',             label: 'User Management',                     Icon: IconUsers          },
   { to: '/vehicles',          label: 'Vehicle Management',                  Icon: IconVehicle        },
   { to: '/staff',             label: 'Staff Management',                    Icon: IconStaff          },
-  { to: '/routes',            label: 'Route Management',                    Icon: IconRoute          },
   { to: '/drivers',           label: 'Driver Management',                   Icon: IconDriver         },
   { to: '/schedule',          label: 'Collection Schedule',                 Icon: IconCalendar       },
   { to: '/live-tracking',     label: 'Live Collection Tracking',            Icon: IconLiveTracking   },

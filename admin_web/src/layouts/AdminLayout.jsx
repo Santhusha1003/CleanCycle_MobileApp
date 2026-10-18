@@ -11,7 +11,6 @@ const PAGE_TITLES = {
   '/users':            'User Management',
   '/vehicles':         'Vehicle Management',
   '/staff':            'Staff Management',
-  '/routes':           'Route Management',
   '/drivers':          'Driver Management',
   '/schedule':         'Collection Schedule',
   '/live-tracking':    'Live Collection Tracking',

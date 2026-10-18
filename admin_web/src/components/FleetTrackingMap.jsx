@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -64,7 +64,6 @@ export default function FleetTrackingMap({ schedules = [], drivers = [], vehicle
   const mapContainerRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef({})
-  const [activeZone, setActiveZone] = useState('All')
 
   // Inject animation CSS for pulse effect once
   useEffect(() => {
@@ -211,7 +210,6 @@ export default function FleetTrackingMap({ schedules = [], drivers = [], vehicle
 
   function focusZone(name) {
     if (!mapInstanceRef.current) return
-    setActiveZone(name)
     const coords = ZONE_COORDINATES[name] || DEFAULT_CENTER
     mapInstanceRef.current.flyTo(coords, 14, { duration: 1 })
   }

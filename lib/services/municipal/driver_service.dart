@@ -313,18 +313,46 @@ class DriverService {
       );
     }
     try {
+      final profile = await _firestoreService.getDocument(
+        path: 'users/$normalizedUid',
+      );
+      if (profile == null ||
+          profile['email'] is! String ||
+          (profile['email'] as String).trim().isEmpty) {
+        throw const DriverServiceException(
+          'Your Driver profile has no verified account email. Contact an administrator.',
+          code: 'account-email-missing',
+        );
+      }
+      final rawEmail = profile['email'] as String;
+      final email = rawEmail.trim().toLowerCase();
+      _validateAccountProfile(normalizedUid, profile, email);
+      // Only exact variants derived from the trusted profile are queried.
+      // Never fall back to listing all drivers or an authUid-only query.
       final snapshot = await _firestoreService.firestore
           .collection(collectionPath)
           .where('authUid', isEqualTo: normalizedUid)
+          .where('email', whereIn: {email, rawEmail.trim(), rawEmail}.toList())
           .get();
+      if (_authenticatedUid() != normalizedUid) {
+        throw const DriverServiceException('The signed-in account changed.');
+      }
       if (snapshot.docs.isEmpty) return null;
       if (snapshot.docs.length != 1) {
         throw const DriverServiceException(
           'Multiple driver records are linked to this account. Contact support.',
         );
       }
-      final driver = Driver.fromMap(snapshot.docs.single.data());
-      if (driver.authUid != normalizedUid) return null;
+      final document = snapshot.docs.single;
+      final driver = Driver.fromMap(document.data());
+      if (driver.authUid != normalizedUid ||
+          driver.driverId != document.id ||
+          driver.email.trim().toLowerCase() != email) {
+        throw const DriverServiceException(
+          'The Driver record has an inconsistent account link. Contact an administrator.',
+          code: 'account-identity-mismatch',
+        );
+      }
       return driver;
     } on DriverServiceException {
       rethrow;

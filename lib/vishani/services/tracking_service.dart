@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../../core/constants/app_roles.dart';
+import '../../services/municipal/driver_service.dart';
+import '../../services/firebase/firestore_service.dart';
 import '../models/driver_tracking_model.dart';
 
 class ResidentScheduleProjectionSyncResult {
@@ -536,9 +538,15 @@ class TrackingService {
     if (uid.isEmpty || _authenticatedUid() != uid) {
       throw StateError('Sign in first.');
     }
+    final driver = await DriverService(
+      firestoreService: FirestoreService(firestoreInstance: _instance),
+      authenticatedUid: _authenticatedUid,
+    ).getDriverForAuthUid(authUid: uid);
+    if (driver == null) return {};
     final snapshot = await _instance
         .collection('schedules')
         .where('assignedDriverUid', isEqualTo: uid)
+        .where('assignedDriverId', isEqualTo: driver.driverId)
         .get();
     final row = selectActive(
       snapshot.docs

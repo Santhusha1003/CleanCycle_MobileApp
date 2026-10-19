@@ -51,7 +51,35 @@ class TrackingRules(unittest.TestCase):
         where = clauses[0] if len(clauses) == 1 else {'compositeFilter': {'op': 'AND', 'filters': clauses}}
         return self.call(':runQuery', uid, 'POST', {'structuredQuery': {'from': [{'collectionId': collection}], 'where': where}})
 
+    def trip_filters(self, suffix='1', driver='d1'):
+        # The existing data model already supplies each source's deterministic
+        # trip ID. Scoped list access must bind the same source relationship.
+        return {'assignedDriverUid': driver, 'requestCollection': 'special_pickups',
+                'requestId': 'r' + suffix, 'residentId': 'one' if suffix == '1' else 'two',
+                'assignedVehicleId': 'v' + suffix}
+
+    def atomic_schedule(self, schedule_id, driver_uid='d1', uid='officer'):
+        schedule = {'scheduleId': schedule_id, 'assignedDriverId': 'municipal-1',
+                    'assignedDriverUid': driver_uid, 'assignedVehicleId': 'v1',
+                    'collectionDate': '2026-10-10', 'startTime': '08:00',
+                    'endTime': '10:00', 'zone': 'North', 'wasteType': 'general',
+                    'status': 'scheduled'}
+        projection = {key: schedule[key] for key in ['collectionDate', 'startTime', 'endTime', 'zone', 'wasteType', 'status']}
+        projection.update(acceptedItems=[], instructions='')
+        def field(value):
+            return {'arrayValue': {'values': []}} if isinstance(value, list) else {'stringValue': value}
+        writes = [{'update': {'name': self.root.split('/v1/')[1] + '/' + path,
+                             'fields': {key: field(value) for key, value in data.items()}}}
+                  for path, data in [('schedules/' + schedule_id, schedule),
+                                     ('resident_schedules/' + schedule_id, projection)]]
+        return self.call(':commit', uid, 'POST', {'writes': writes})[0]
+
     def setUp(self):
+        # Every test starts from an empty demo database. Atomic creation tests
+        # otherwise leak projections into later tests that expect two fixtures.
+        reset = Request(self.root.replace('/v1/projects/', '/emulator/v1/projects/'), method='DELETE')
+        with urlopen(reset, timeout=15) as response:
+            self.assertEqual(response.status, 200)
         for uid, role in [('one', 'resident'), ('two', 'resident'), ('d1', 'driver'), ('d2', 'driver'), ('officer', 'municipal_officer')]:
             self.assertEqual(self.write('users/' + uid, {'uid': uid, 'email': uid + '@example.test', 'role': role, 'name': uid}, '__seed__'), 200)
         for suffix, resident, driver in [('1', 'one', 'd1'), ('2', 'two', 'd2')]:
@@ -123,8 +151,8 @@ class TrackingRules(unittest.TestCase):
     def test_driver_can_read_only_own_verified_driver_record(self):
         self.assertEqual(self.call('/drivers/municipal-1', 'd1')[0], 200)
         self.assertEqual(self.call('/drivers/municipal-2', 'd1')[0], 403)
-        self.assertEqual(self.query('drivers', {'authUid': 'd1'}, 'd1')[0], 200)
-        self.assertEqual(self.query('drivers', {'authUid': 'd2'}, 'd1')[0], 403)
+        self.assertEqual(self.query('drivers', {'authUid': 'd1', 'email': 'd1@example.test'}, 'd1')[0], 200)
+        self.assertEqual(self.query('drivers', {'authUid': 'd2', 'email': 'd2@example.test'}, 'd1')[0], 403)
         self.assertEqual(self.call(':runQuery', 'd1', 'POST', {
             'structuredQuery': {'from': [{'collectionId': 'drivers'}]}})[0], 403)
         # Municipal Officer collection-wide access remains unchanged.
@@ -134,24 +162,23 @@ class TrackingRules(unittest.TestCase):
     def test_revoked_internal_driver_link_removes_schedule_access(self):
         self.assertEqual(self.call('/drivers/municipal-1', '__seed__', 'DELETE')[0], 200)
         self.assertEqual(self.call('/schedules/s1', 'd1')[0], 403)
+        self.assertEqual(self.query('schedules', {'assignedDriverUid': 'd1', 'assignedDriverId': 'municipal-1'}, 'd1')[0], 403)
 
     def test_schedule_assignment_requires_verified_internal_driver_link(self):
         self.assertEqual(self.write('drivers/municipal-1', {
             'driverId': 'municipal-1', 'authUid': 'd1'}, '__seed__'), 200)
-        valid = {'scheduleId': 'assigned', 'assignedDriverId': 'municipal-1',
-                 'assignedDriverUid': 'd1', 'assignedVehicleId': 'v1',
-                 'status': 'scheduled'}
-        self.assertEqual(self.write('schedules/assigned', valid, 'officer'), 200)
-        forged_uid = {**valid, 'scheduleId': 'forged', 'assignedDriverUid': 'd2'}
-        self.assertEqual(self.write('schedules/forged', forged_uid, 'officer'), 403)
+        self.assertEqual(self.atomic_schedule('assigned'), 200)
+        self.assertEqual(self.atomic_schedule('forged', driver_uid='d2'), 403)
+        self.assertEqual(self.call('/schedules/forged', '__seed__')[0], 404)
+        self.assertEqual(self.call('/resident_schedules/forged', '__seed__')[0], 404)
         self.assertEqual(self.write('schedules/assigned', {
             'assignedDriverUid': 'd2'}, 'd1', True), 403)
 
     def test_scoped_queries_match_the_application(self):
         self.assertEqual(self.query('special_pickups', {'userId': 'one'}, 'one')[0], 200)
         self.assertEqual(self.call('/driver_trips/special_pickups_r1', 'one')[0], 200)
-        self.assertEqual(self.query('driver_trips', {'assignedDriverUid': 'd1'}, 'd1')[0], 200)
-        self.assertEqual(self.query('schedules', {'assignedDriverUid': 'd1'}, 'd1')[0], 200)
+        self.assertEqual(self.query('driver_trips', self.trip_filters(), 'd1')[0], 200)
+        self.assertEqual(self.query('schedules', {'assignedDriverUid': 'd1', 'assignedDriverId': 'municipal-1'}, 'd1')[0], 200)
         self.assertEqual(self.query('driver_trips', {'assignedDriverUid': 'd2'}, 'd1')[0], 403)
 
     def test_driver_coordinates_cannot_change_assignment_or_another_trip(self):
@@ -178,6 +205,22 @@ class TrackingRules(unittest.TestCase):
     def test_reassignment_revokes_old_driver_access(self):
         self.assertEqual(self.write('special_pickups/r1', {'assignedDriverUid': 'd2'}, '__seed__', True), 200)
         self.assertEqual(self.call('/driver_trips/special_pickups_r1', 'd1')[0], 403)
+        self.assertEqual(self.query('driver_trips', self.trip_filters(), 'd1')[0], 403)
+
+    def test_invalidated_driver_email_revokes_schedule_get_and_list(self):
+        self.assertEqual(self.write('drivers/municipal-1', {'email': 'different@example.test'}, '__seed__', True), 200)
+        self.assertEqual(self.call('/schedules/s1', 'd1')[0], 403)
+        self.assertEqual(self.query('schedules', {'assignedDriverUid': 'd1', 'assignedDriverId': 'municipal-1'}, 'd1')[0], 403)
+
+    def test_missing_driver_link_and_wide_queries_fail_closed(self):
+        self.assertEqual(self.query('drivers', {'authUid': 'd1'}, 'd1')[0], 403)
+        self.assertEqual(self.query('schedules', {'assignedDriverUid': 'd1'}, 'd1')[0], 403)
+        self.assertEqual(self.query('driver_trips', {'assignedDriverUid': 'd1'}, 'd1')[0], 403)
+
+    def test_profile_email_variants_remain_queryable_and_verified(self):
+        self.assertEqual(self.write('users/d1', {'email': ' D1@Example.Test '}, '__seed__', True), 200)
+        self.assertEqual(self.query('drivers', {'authUid': 'd1', 'email': 'd1@example.test'}, 'd1')[0], 200)
+        self.assertEqual(self.query('drivers', {'authUid': 'd1', 'email': 'wrong@example.test'}, 'd1')[0], 403)
 
     def test_unauthenticated_reads_and_writes_are_denied(self):
         self.assertEqual(self.call('/driver_trips/special_pickups_r1', None)[0], 403)

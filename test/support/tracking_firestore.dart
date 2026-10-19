@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TrackingFirestoreFixture implements FirebaseFirestore {
+  final queryReads = <({String collection, Map<String, Object?> filters})>[];
   final documents = <String, Map<String, dynamic>>{
     'users/one': {'role': 'resident', 'addressZone': 'Zone One'},
     'users/two': {'role': 'resident', 'addressZone': 'Zone Two'},
@@ -128,6 +129,8 @@ class TrackingFirestoreFixture implements FirebaseFirestore {
   CollectionReference<Map<String, dynamic>> collection(String path) =>
       _Collection(this, path);
   @override
+  DocumentReference<Map<String, dynamic>> doc(String path) => _Doc(this, path);
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -197,6 +200,7 @@ class _Query implements Query<Map<String, dynamic>> {
     bool? isNull,
   }) => _Query(db, path, {...filters, field.toString(): whereIn ?? isEqualTo});
   QuerySnapshot<Map<String, dynamic>> snapshot() {
+    db.queryReads.add((collection: path, filters: Map.of(filters)));
     if (db.denied.contains(path)) {
       throw FirebaseException(
         plugin: 'cloud_firestore',

@@ -93,6 +93,51 @@ void main() {
   tearDown(() => db.dispose());
 
   test(
+    'driver next collection scopes schedules to the verified record ID',
+    () async {
+      db.documents['drivers/municipal-driver-1']!['authUid'] = 'd1';
+      db.documents['schedules/driver-next'] = {
+        'assignedDriverUid': 'd1',
+        'assignedDriverId': 'municipal-driver-1',
+        'collectionDate': '2099-10-10',
+        'startTime': '08:00',
+        'endTime': '10:00',
+        'wasteType': 'general',
+        'status': 'scheduled',
+      };
+      final driverTracking = TrackingService(
+        firestore: db,
+        authenticatedUid: () => 'd1',
+      );
+      final result = await driverTracking.fetchNextCollection('d1');
+      expect(result['category'], 'general');
+      final reads = db.queryReads.where(
+        (read) => read.collection == 'schedules',
+      );
+      expect(reads.single.filters, {
+        'assignedDriverUid': 'd1',
+        'assignedDriverId': 'municipal-driver-1',
+      });
+    },
+  );
+
+  test(
+    'missing driver link does not issue a schedule collection query',
+    () async {
+      db.documents.remove('drivers/municipal-driver-1');
+      final driverTracking = TrackingService(
+        firestore: db,
+        authenticatedUid: () => 'd1',
+      );
+      expect(await driverTracking.fetchNextCollection('d1'), isEmpty);
+      expect(
+        db.queryReads.where((read) => read.collection == 'schedules'),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
     'example assigned schedule saves typed fields and matching projection',
     () async {
       db.documents['drivers/driver003'] = {

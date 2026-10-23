@@ -15,3 +15,9 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+## Local Firestore security tests
+
+See [Firestore local testing](docs/FIRESTORE_LOCAL_TESTING.md) for demo-only
+emulator commands, review candidate selection, and verification results. The
+baseline rules are unchanged; no production deployment is part of these tests.

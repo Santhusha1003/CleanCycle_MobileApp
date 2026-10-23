@@ -1,5 +1,7 @@
 # Special collection request security verification
 
+> Historical admin security notes. Use the current [Firestore local testing guide](../../docs/FIRESTORE_LOCAL_TESTING.md) for supported Python suites and review candidates. The npm rules-test commands and snapshot assertions below need separate reconciliation; they are not verified by the current Python suites.
+
 ## Repository findings
 
 The web client and Flutter configuration point to `cleancyclemobileapp`.

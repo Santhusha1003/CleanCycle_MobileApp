@@ -1,8 +1,10 @@
 """Special request authorization regressions. Local demo emulator ONLY.
 
-Use /tmp/cleancycle-special-requests-test.json with the corrected candidate.
+Use firebase.special-requests.json for the original candidate or
+firebase.combined-test.json with --combined for the combined review candidate.
 No Auth, Firestore, or deployment requests are sent to a live project.
 """
+import argparse
 import base64
 import json
 from pathlib import Path
@@ -13,6 +15,9 @@ from test_tracking_permissions import TrackingRules
 
 
 class SpecialRequestRules(TrackingRules):
+    baseline_file = 'firestore.rules'
+    candidate_file = 'firestore.special-requests.rules'
+
     def token(self, uid):
         parts = super().token(uid).split('.')
         payload = json.loads(base64.urlsafe_b64decode(parts[1] + '=' * (-len(parts[1]) % 4)))
@@ -97,11 +102,17 @@ class SpecialRequestRules(TrackingRules):
 
     def test_candidate_only_adds_one_helper_and_one_nonoverlapping_match(self):
         root = Path(__file__).resolve().parents[1]
-        baseline = (root / 'firestore.rules').read_text()
-        candidate = (root / 'firestore.special-requests.rules').read_text()
+        baseline = (root / self.baseline_file).read_text()
+        candidate = (root / self.candidate_file).read_text()
         start = candidate.index('    // Matches the admin')
         end = candidate.index('    // Everything else is denied.', start)
         self.assertEqual(candidate[:start] + candidate[end:], baseline)
+        # The combined candidate must import the original authorization block
+        # verbatim, not replace it with a broader or differently trusted rule.
+        original = (root / 'firestore.special-requests.rules').read_text()
+        original_start = original.index('    // Matches the admin')
+        original_end = original.index('    // Everything else is denied.', original_start)
+        self.assertEqual(candidate[start:end], original[original_start:original_end])
         self.assertEqual(candidate.count('function isMunicipalOfficer()'), 1)
         self.assertEqual(candidate.count('match /special_requests/{requestId}'), 1)
         paths = re.findall(r'match\s+([^\s]+)\s*\{', candidate)
@@ -111,6 +122,12 @@ class SpecialRequestRules(TrackingRules):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--combined', action='store_true', help='Check the combined candidate against the unchanged tracking candidate.')
+    args = parser.parse_args()
+    if args.combined:
+        SpecialRequestRules.baseline_file = 'firestore.tracking-review.rules'
+        SpecialRequestRules.candidate_file = 'firestore.combined-review.rules'
     # Run this focused suite; the tracking suite is executed separately.
     names = [name for name in SpecialRequestRules.__dict__ if name.startswith('test_')]
     result = unittest.TextTestRunner(verbosity=2).run(

@@ -1,0 +1,452 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------
+    // Helpers
+    // Role is stored on users/{uid}. Driver and officer accounts
+    // are created by an administrator, not by self-registration.
+    // ---------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function getRole() {
+      return isSignedIn() && exists(userPath())
+          ? get(userPath()).data.role
+          : '';
+    }
+
+    function isOfficer() {
+      return getRole() in ['officer', 'municipal_officer'];
+    }
+
+    function isDriver() {
+      return getRole() == 'driver';
+    }
+
+    function isResident() {
+      return getRole() == 'resident';
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function validScheduleAssignment(data) {
+      let driverId = data.get('assignedDriverId', null);
+      let driverUid = data.get('assignedDriverUid', null);
+      let vehicleId = data.get('assignedVehicleId', null);
+      // Planning records grant no account access. Only Officers can write them;
+      // every selected municipal driver/vehicle must be a real existing record.
+      return (vehicleId == null || (vehicleId is string
+                  && exists(/databases/$(database)/documents/vehicles/$(vehicleId))))
+          && (driverId == null || (driverId is string
+                  && exists(/databases/$(database)/documents/drivers/$(driverId))))
+          && (driverUid == null
+              || (driverId is string && driverUid is string && vehicleId is string
+                  && get(/databases/$(database)/documents/drivers/$(driverId)).data.authUid == driverUid
+                  && exists(/databases/$(database)/documents/users/$(driverUid))
+                  && get(/databases/$(database)/documents/users/$(driverUid)).data.role == 'driver'
+                  && (get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.get('assignedDriverId', null) == null
+                      || get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.assignedDriverId == driverId)
+                  && (get(/databases/$(database)/documents/drivers/$(driverId)).data.get('assignedVehicleId', null) == null
+                      || get(/databases/$(database)/documents/drivers/$(driverId)).data.assignedVehicleId == vehicleId)));
+    }
+
+    function validDriverAuthLink(data) {
+      let driverUid = data.get('authUid', null);
+      return driverUid == null
+          || (driverUid is string
+              && exists(/databases/$(database)/documents/users/$(driverUid))
+              && get(/databases/$(database)/documents/users/$(driverUid)).data.get('uid', driverUid) == driverUid
+              && get(/databases/$(database)/documents/users/$(driverUid)).data.email.trim().lower() == data.email.trim().lower()
+              && get(/databases/$(database)/documents/users/$(driverUid)).data.role == 'driver');
+    }
+
+    // Reads require the current, still-verified internal driver link.
+    // List queries must constrain both assignedDriverUid and assignedDriverId.
+    function currentScheduleDriver(data) {
+      let driverId = data.get('assignedDriverId', '');
+      let path = /databases/$(database)/documents/drivers/$(driverId);
+      return driverId is string && driverId.size() > 0
+          && exists(path)
+          && get(path).data.get('authUid', '') == request.auth.uid
+          && validDriverAuthLink(get(path).data);
+    }
+
+    function schedulePath(scheduleId) {
+      return /databases/$(database)/documents/schedules/$(scheduleId);
+    }
+
+    function residentSchedulePath(scheduleId) {
+      return /databases/$(database)/documents/resident_schedules/$(scheduleId);
+    }
+
+    function validResidentScheduleProjection(data, scheduleId) {
+      let schedule = getAfter(schedulePath(scheduleId)).data;
+      return data.keys().hasOnly([
+                'collectionDate', 'startTime', 'endTime', 'zone',
+                'wasteType', 'status', 'acceptedItems', 'instructions'
+              ])
+          && data.keys().hasAll([
+                'collectionDate', 'startTime', 'endTime',
+                'wasteType', 'status', 'acceptedItems', 'instructions'
+              ])
+          && existsAfter(schedulePath(scheduleId))
+          && data.collectionDate == schedule.collectionDate
+          && data.startTime == schedule.startTime
+          && data.endTime == schedule.endTime
+          && data.get('zone', '') == schedule.get('zone', '')
+          && data.wasteType == schedule.wasteType
+          && data.status == schedule.status
+          && data.acceptedItems == schedule.get('acceptedItems', [])
+          && data.instructions == schedule.get('instructions', '');
+    }
+
+    function scheduleHasMatchingProjection(scheduleId) {
+      return existsAfter(residentSchedulePath(scheduleId))
+          && validResidentScheduleProjection(
+               getAfter(residentSchedulePath(scheduleId)).data,
+               scheduleId
+             );
+    }
+
+    // ---------------------------------------------------------
+    // users/{uid}
+    // Owner can read and update their profile, but cannot change role.
+    // Create is allowed only for the owner, and only as a resident.
+    // Officers can read every profile (admin web).
+    // ---------------------------------------------------------
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isOfficer();
+
+      allow create: if (
+                      isOwner(userId)
+                      && request.resource.data.role == 'resident'
+                      && request.resource.data.uid == userId
+                    ) || (
+                      isOfficer()
+                      && request.resource.data.uid == userId
+                      && request.resource.data.role in ['resident', 'driver', 'officer']
+                    );
+
+      allow update: if (
+                      isOwner(userId)
+                      && request.resource.data.role == resource.data.role
+                      && request.resource.data.uid == resource.data.uid
+                      && request.resource.data.email == resource.data.email
+                    ) || (
+                      isOfficer()
+                      && request.resource.data.uid == resource.data.uid
+                      && request.resource.data.email == resource.data.email
+                      && request.resource.data.role in ['resident', 'driver', 'officer']
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['name', 'phone', 'role', 'zone', 'notificationsEnabled', 'updatedAt'])
+                    );
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------
+    // Municipal operations
+    // Officers have full access. Drivers can read municipal records needed
+    // for assigned work. Residents read only the safe schedule projection.
+    // ---------------------------------------------------------
+
+    match /vehicles/{vehicleId} {
+      allow read: if isOfficer() || isDriver();
+      allow create, update, delete: if isOfficer();
+    }
+
+    match /drivers/{driverId} {
+      // Municipal Officers retain collection-wide access. Drivers may read
+      // only the record verified against their authenticated UID.
+      allow read: if isOfficer()
+                  || (isDriver()
+                      && resource.data.authUid == request.auth.uid
+                      && validDriverAuthLink(resource.data));
+      allow create: if isOfficer() && validDriverAuthLink(request.resource.data);
+      allow update: if isOfficer()
+                    && request.resource.data.driverId == resource.data.driverId
+                    && validDriverAuthLink(request.resource.data);
+      allow delete: if isOfficer();
+    }
+
+    match /staff/{staffId} {
+      allow read, create, update, delete: if isOfficer();
+    }
+
+    match /schedules/{scheduleId} {
+      allow read: if isOfficer()
+                  || (isDriver()
+                      && resource.data.assignedDriverUid == request.auth.uid
+                      && currentScheduleDriver(resource.data));
+      allow create: if isOfficer()
+                    && validScheduleAssignment(request.resource.data)
+                    && scheduleHasMatchingProjection(scheduleId);
+      allow update: if isOfficer()
+                    && (validScheduleAssignment(request.resource.data)
+                        || (request.resource.data.get('assignedDriverId', null)
+                                == resource.data.get('assignedDriverId', null)
+                            && request.resource.data.get('assignedDriverUid', null)
+                                == resource.data.get('assignedDriverUid', null)))
+                    && scheduleHasMatchingProjection(scheduleId);
+      allow delete: if isOfficer()
+                    && !existsAfter(residentSchedulePath(scheduleId));
+    }
+
+    // Resident-visible schedule browsing uses a strict field allowlist and a
+    // projection that must match the corresponding full schedule after write.
+    match /resident_schedules/{scheduleId} {
+      allow read: if isResident();
+      allow create, update: if isOfficer()
+                            && validResidentScheduleProjection(
+                                 request.resource.data,
+                                 scheduleId
+                               );
+      allow delete: if isOfficer()
+                    && !existsAfter(schedulePath(scheduleId));
+    }
+
+    // ---------------------------------------------------------
+    // Missed collection reports
+    // A resident creates and reads only their own report.
+    // Officers can read all reports.
+    // ---------------------------------------------------------
+
+    match /missedCollectionReports/{reportId} {
+      allow create: if isResident()
+                    && request.resource.data.residentId == request.auth.uid;
+
+      allow read: if isOfficer()
+                  || (isResident()
+                      && resource.data.residentId == request.auth.uid);
+
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------
+    // driverLocations/{driverId}
+    // The signed-in driver writes only their own document.
+    // Officers and residents can read locations for live tracking.
+    // ---------------------------------------------------------
+
+    // Legacy location documents are not used as resident-wide tracking data.
+    match /driverLocations/{driverUid} {
+      allow read: if isOfficer() || (isDriver() && request.auth.uid == driverUid);
+      allow create, update, delete: if isOfficer();
+    }
+
+    // ---------------------------------------------------------
+    // notifications/{id}
+    // A user reads and marks their own notifications as read.
+    // They may also store a notification addressed to themselves.
+    // Officers may create a notification for any user.
+    // ---------------------------------------------------------
+
+    match /notifications/{notificationId} {
+      allow read: if isOfficer()
+                  || (isSignedIn()
+                      && resource.data.userId == request.auth.uid);
+
+      allow create: if isSignedIn()
+                    && (isOfficer()
+                        || request.resource.data.userId == request.auth.uid);
+
+      allow update: if isSignedIn()
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == resource.data.userId
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------
+    // complaints/{complaintId}
+    // A resident submits a complaint, feedback item, or suggestion.
+    // Officers can read every item and record a reply.
+    // ---------------------------------------------------------
+
+    match /complaints/{complaintId} {
+      allow create: if isResident()
+                    && request.resource.data.residentId == request.auth.uid
+                    && request.resource.data.complaintId == complaintId
+                    && request.resource.data.status == 'open'
+                    && request.resource.data.category in ['complaint', 'feedback', 'suggestion'];
+
+      allow read: if isOfficer()
+                  || (isResident()
+                      && resource.data.residentId == request.auth.uid);
+
+      allow update: if isOfficer()
+                    && request.resource.data.residentId == resource.data.residentId
+                    && request.resource.data.status in ['open', 'in_review', 'resolved']
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['status', 'officerReply', 'updatedAt']);
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------
+    // collectionRequests/{requestId}
+    // A resident creates a pending request and can read their own.
+    // They may cancel it only while it is still pending.
+    // Officers can read every request and update its status.
+    // ---------------------------------------------------------
+
+    match /collectionRequests/{requestId} {
+      allow get: if isDriver() && resource.data.assignedDriverUid == request.auth.uid;
+      allow create: if isResident()
+                    && request.resource.data.residentId == request.auth.uid
+                    && request.resource.data.requestId == requestId
+                    && request.resource.data.status == 'pending'
+                    && !request.resource.data.keys().hasAny(['assignedDriverUid', 'assignedDriverId', 'assignedVehicleId', 'trackingTripId']);
+
+      allow read: if isOfficer()
+                  || (isResident()
+                      && resource.data.residentId == request.auth.uid);
+
+      allow update: if (
+                      isOfficer()
+                      && request.resource.data.residentId == resource.data.residentId
+                      && request.resource.data.status in [
+                        'pending', 'approved', 'in_progress',
+                        'completed', 'rejected', 'cancelled'
+                      ]
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly([
+                            'status', 'officerNote', 'assignedDriverId',
+                            'assignedVehicleId', 'assignedDriverUid', 'trackingTripId', 'updatedAt'
+                          ])
+                    ) || (
+                      isResident()
+                      && resource.data.residentId == request.auth.uid
+                      && resource.data.status == 'pending'
+                      && request.resource.data.status == 'cancelled'
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['status', 'updatedAt'])
+                    );
+
+      allow delete: if false;
+    }
+
+
+    // Member 03 requests keep their existing collection/owner field.
+    // Both residents and drivers may create and manage their own pickup requests.
+    // Only an Officer assigns a verified Auth UID and vehicle.
+    match /special_pickups/{requestId} {
+      allow read: if isOfficer() || ((isResident() || isDriver()) && resource.data.userId == request.auth.uid);
+      allow get: if isDriver() && resource.data.assignedDriverUid == request.auth.uid;
+      allow create: if (isResident() || isDriver())
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.requestId == requestId
+                    && request.resource.data.status in ['Pending', 'pending']
+                    && !request.resource.data.keys().hasAny(['assignedDriverUid', 'assignedDriverId', 'assignedVehicleId', 'trackingTripId']);
+      allow update: if (isOfficer()
+                        && request.resource.data.userId == resource.data.userId
+                        && request.resource.data.requestId == resource.data.requestId)
+                    || ((isResident() || isDriver()) && resource.data.userId == request.auth.uid
+                        && resource.data.status in ['Pending', 'pending']
+                        && request.resource.data.status in ['Pending', 'pending', 'Cancelled', 'cancelled']
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'notes', 'address', 'scheduledDate', 'timeSlot', 'photoUrls', 'status'
+                        ]));
+      allow delete: if isOfficer() || ((isResident() || isDriver()) && resource.data.userId == request.auth.uid
+                                       && resource.data.status in ['Pending', 'pending']);
+    }
+
+    function tripSource(trip) {
+      return /databases/$(database)/documents/$(trip.requestCollection)/$(trip.requestId);
+    }
+    function validTrip(trip) {
+      return trip.keys().hasAll(['assignedDriverUid', 'assignedVehicleId', 'residentId', 'requestCollection', 'requestId'])
+          && trip.requestCollection in ['special_pickups', 'collectionRequests', 'schedules']
+          && exists(tripSource(trip))
+          && get(tripSource(trip)).data.assignedDriverUid == trip.assignedDriverUid
+          && get(tripSource(trip)).data.assignedVehicleId == trip.assignedVehicleId
+          && (trip.requestCollection == 'schedules' ? trip.residentId == '' :
+              trip.requestCollection == 'special_pickups' ?
+                trip.residentId == get(tripSource(trip)).data.userId :
+                trip.residentId == get(tripSource(trip)).data.residentId)
+          && (trip.requestCollection != 'schedules'
+              || (trip.keys().hasAll(['assignedDriverId'])
+                  && get(/databases/$(database)/documents/drivers/$(trip.assignedDriverId)).data.authUid == trip.assignedDriverUid))
+          && get(/databases/$(database)/documents/users/$(trip.assignedDriverUid)).data.role == 'driver'
+          && exists(/databases/$(database)/documents/vehicles/$(trip.assignedVehicleId));
+    }
+    // Officer assignment batches write the source and trip together. Validate
+    // that source after the batch; reads and Driver updates use current data.
+    function validTripAfterWrite(trip) {
+      // Preserve existing request-trip permissions; only schedule batches need
+      // to validate their newly written source before it exists in storage.
+      return trip.get('requestCollection', '') == 'schedules'
+          ? (trip.keys().hasAll(['assignedDriverUid', 'assignedVehicleId', 'assignedDriverId', 'residentId', 'requestId'])
+              && trip.assignedDriverUid is string
+              && trip.assignedDriverUid.size() > 0
+              && existsAfter(tripSource(trip))
+              && getAfter(tripSource(trip)).data.assignedDriverId == trip.assignedDriverId
+              && getAfter(tripSource(trip)).data.assignedDriverUid == trip.assignedDriverUid
+              && getAfter(tripSource(trip)).data.assignedVehicleId == trip.assignedVehicleId
+              && trip.residentId == ''
+              && get(/databases/$(database)/documents/drivers/$(trip.assignedDriverId)).data.authUid == trip.assignedDriverUid
+              && get(/databases/$(database)/documents/users/$(trip.assignedDriverUid)).data.role == 'driver'
+              && exists(/databases/$(database)/documents/vehicles/$(trip.assignedVehicleId)))
+          : validTrip(trip);
+    }
+    function validProjection(trip) {
+      let driver = get(/databases/$(database)/documents/users/$(trip.assignedDriverUid)).data;
+      let vehicle = get(/databases/$(database)/documents/vehicles/$(trip.assignedVehicleId)).data;
+      return trip.get('driverName', driver.get('name', '')) == driver.get('name', '')
+          && trip.get('driverPhone', driver.get('phone', '')) == driver.get('phone', '')
+          && trip.get('driverAvatarUrl', driver.get('avatarUrl', '')) == driver.get('avatarUrl', '')
+          && trip.get('vehicleNumber', vehicle.registrationNumber) == vehicle.registrationNumber;
+    }
+    function validCoordinates(trip) {
+      return trip.currentLatitude is number && trip.currentLongitude is number
+          && trip.currentLatitude >= -90 && trip.currentLatitude <= 90
+          && trip.currentLongitude >= -180 && trip.currentLongitude <= 180;
+    }
+    // One document per actual trip, with a trusted request/schedule relationship.
+    // Public display fields are a minimal Officer-written projection, not a
+    // permission to read another user's complete profile or driver record.
+    match /driver_trips/{tripId} {
+      allow list: if isOfficer()
+                  || (isDriver()
+                      && resource.data.assignedDriverUid == request.auth.uid && validTrip(resource.data));
+      allow get: if isOfficer()
+                  || (isDriver() && resource.data.assignedDriverUid == request.auth.uid && validTrip(resource.data))
+                  || ((isResident() || isDriver()) && resource.data.residentId == request.auth.uid && validTrip(resource.data));
+      allow create: if isOfficer() && validTripAfterWrite(request.resource.data) && validProjection(request.resource.data)
+                    && tripId == request.resource.data.requestCollection + '_' + request.resource.data.requestId;
+      allow update: if (isOfficer() && validTripAfterWrite(request.resource.data) && validProjection(request.resource.data)
+                        && tripId == request.resource.data.requestCollection + '_' + request.resource.data.requestId)
+                    || (isDriver() && resource.data.assignedDriverUid == request.auth.uid
+                        && validTrip(resource.data) && validCoordinates(request.resource.data)
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'currentLatitude', 'currentLongitude', 'updatedAt'
+                        ]));
+      allow delete: if isOfficer();
+    }
+
+    // Preserve the integrated Member 03 report ownership and schedule helpers.
+    match /missed_reports/{reportId} {
+      allow create: if isOwner(request.resource.data.userId);
+      allow read, delete: if isOwner(resource.data.userId);
+      allow update: if isOwner(resource.data.userId)
+                    && request.resource.data.userId == resource.data.userId;
+    }
+    match /collection_schedules/{userId} {
+      allow read: if isResident() && isOwner(userId);
+    }
+
+    // Everything else is denied.
+  }
+}

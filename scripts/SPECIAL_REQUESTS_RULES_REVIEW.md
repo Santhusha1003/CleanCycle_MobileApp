@@ -1,5 +1,7 @@
 # Special-request rules: local review
 
+> Historical single-candidate review. Current combined candidate verification and reproducible demo-only commands are documented in [Firestore local testing](../docs/FIRESTORE_LOCAL_TESTING.md). The four baseline tracking failures described below are addressed by the separate tracking candidate, not by changing the baseline.
+
 The corrected `firestore.special-requests.rules` is the current `firestore.rules`
 plus only the original special-request candidate's `isMunicipalOfficer()` helper
 and `/special_requests/{requestId}` match. Removing that added block reproduces

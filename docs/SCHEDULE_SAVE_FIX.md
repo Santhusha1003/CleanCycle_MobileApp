@@ -1,5 +1,7 @@
 # Schedule save: deployed rule fix; live schedule writes unverified
 
+> Historical deployment record. For current baseline/candidate selection and reproducible demo-only testing, see [Firestore local testing](FIRESTORE_LOCAL_TESTING.md). The historical schedule candidate below is not the combined tracking/special-request policy.
+
 The previous published rules for `cleancyclemobileapp` were backed up and compared
 with the candidate. The candidate was deployed using the explicitly authorized
 rules-only command below. Successful schedule saves were tested in the emulator
